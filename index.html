@@ -194,8 +194,9 @@
   }
   .partner-badge{
     border:1px solid var(--line); padding:16px 22px; border-radius:2px;
-    font-family:var(--sans); font-weight:600; font-size:1rem; color:var(--navy-deep);
     background:var(--paper-dim);
+    display:flex; align-items:center; justify-content:center;
+    min-width:120px; min-height:56px;
   }
   .partner-note{margin-top:24px; font-family:var(--mono); font-size:0.68rem; color:var(--steel); letter-spacing:0.02em; max-width:640px; line-height:1.6; text-transform:none;}
 
@@ -231,7 +232,7 @@
 
 <nav class="nav">
   <div class="nav-inner">
-    <div class="brand">AVERON <span>automation</span></div>
+    <a href="#" class="brand"><img src="averon-logo.png" alt="Averon Automation" style="height:32px; display:block;"></a>
     <div class="nav-links">
       <a href="#services">Services</a>
       <a href="#industries">Industries</a>
@@ -246,7 +247,7 @@
 <section class="hero">
   <div class="hero-grid">
     <div>
-      <div class="status-tag"><span class="led"></span> SYSTEM ONLINE — VADODARA, IN</div>
+      <div class="status-tag"><span class="led"></span> SYSTEM ONLINE — AHMEDABAD, IN</div>
       <h1>Automation that keeps running long after we leave the panel room.</h1>
       <p class="lede">PLC, HMI and SCADA systems for pharma, food, cosmetics and warehousing plants — built on whichever platform actually fits your process, not the one we'd rather sell you.</p>
       <div class="hero-actions">
@@ -255,46 +256,60 @@
       </div>
     </div>
     <div>
-      <svg class="schematic" viewBox="0 0 480 400" xmlns="http://www.w3.org/2000/svg">
+      <svg class="schematic" viewBox="0 0 520 460" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="blueDots" width="22" height="22" patternUnits="userSpaceOnUse">
+            <circle cx="2" cy="2" r="1.1" fill="#C7D2EE" opacity="0.22"/>
+          </pattern>
+        </defs>
+        <rect x="0" y="0" width="520" height="460" fill="url(#blueDots)"/>
+
+        <!-- HMI panel, top right -->
+        <rect class="proc" x="378" y="38" width="86" height="58" rx="4"/>
+        <line class="proc" x1="388" y1="52" x2="444" y2="52"/>
+        <line class="proc" x1="388" y1="64" x2="430" y2="64"/>
+        <line class="proc" x1="388" y1="76" x2="438" y2="76"/>
+        <text x="378" y="110">HMI-01</text>
+
         <!-- vessel -->
-        <rect class="vessel" x="150" y="110" width="130" height="160" rx="10"/>
-        <path class="proc" d="M150 130 H280"/>
-        <path class="proc" d="M150 160 H280"/>
-        <path class="proc" d="M150 190 H280"/>
+        <rect class="vessel" x="178" y="150" width="148" height="172" rx="10"/>
+        <line class="proc" x1="178" y1="182" x2="326" y2="182"/>
+        <line class="proc" x1="178" y1="214" x2="326" y2="214"/>
+        <line class="proc" x1="178" y1="246" x2="326" y2="246"/>
+
         <!-- agitator -->
-        <line class="proc" x1="215" y1="40" x2="215" y2="120"/>
-        <rect class="proc" x="195" y="20" width="40" height="22" rx="3"/>
-        <text x="240" y="34">MOT-01</text>
-        <!-- inlet pipe + valve -->
-        <path class="proc" d="M30 90 H150"/>
-        <polygon class="proc" points="90,84 102,90 90,96 78,90"/>
-        <text x="70" y="74">V-01</text>
-        <!-- outlet pipe + valve -->
-        <path class="proc" d="M280 250 H360 V320 H300"/>
-        <polygon class="proc" points="330,314 342,320 330,326 318,320"/>
-        <text x="318" y="304">V-02</text>
-        <!-- sensor -->
-        <circle class="node" cx="300" cy="320" r="14"/>
-        <line class="proc" x1="293" y1="320" x2="307" y2="320"/>
-        <line class="proc" x1="300" y1="313" x2="300" y2="327"/>
-        <text x="290" y="345">FT-01</text>
-        <!-- signal line to PLC -->
-        <path class="sig" d="M300 334 V370 H400"/>
-        <circle class="dot" cx="300" cy="334" r="2.4"/>
+        <line class="proc" x1="252" y1="56" x2="252" y2="150"/>
+        <rect class="proc" x="222" y="30" width="60" height="28" rx="4"/>
+        <text x="290" y="48">MOT-01</text>
+
+        <!-- inlet pipe + valve V-01 -->
+        <path class="proc" d="M34 196 H178"/>
+        <polygon class="proc" points="98,190 110,196 98,202 86,196"/>
+        <text x="74" y="182">V-01</text>
+
+        <!-- outlet pipe + valve V-02 -->
+        <path class="proc" d="M252 322 V366 H402"/>
+        <polygon class="proc" points="252,338 264,344 252,350 240,344"/>
+        <text x="266" y="348">V-02</text>
+
+        <!-- flow sensor -->
+        <circle class="node" cx="402" cy="366" r="15"/>
+        <line class="proc" x1="394" y1="366" x2="410" y2="366"/>
+        <line class="proc" x1="402" y1="358" x2="402" y2="374"/>
+        <text x="382" y="398">FT-01</text>
+
+        <!-- signal lines to PLC -->
+        <path class="sig" d="M402 381 V420 H470"/>
+        <path class="sig" d="M420 96 V420"/>
+        <circle class="dot" cx="402" cy="381" r="2.4"/>
+        <circle class="dot" cx="420" cy="96" r="2.4"/>
+
         <!-- PLC rack -->
-        <rect class="proc" x="400" y="345" width="60" height="50" rx="3"/>
-        <line class="proc" x1="412" y1="345" x2="412" y2="395"/>
-        <line class="proc" x1="424" y1="345" x2="424" y2="395"/>
-        <line class="proc" x1="436" y1="345" x2="436" y2="395"/>
-        <line class="proc" x1="448" y1="345" x2="448" y2="395"/>
-        <text x="403" y="338">PLC-01</text>
-        <!-- HMI -->
-        <rect class="proc" x="395" y="60" width="70" height="46" rx="3"/>
-        <line class="proc" x1="402" y1="70" x2="458" y2="70"/>
-        <line class="proc" x1="402" y1="80" x2="440" y2="80"/>
-        <line class="proc" x1="402" y1="90" x2="448" y2="90"/>
-        <text x="400" y="118">HMI-01</text>
-        <path class="sig" d="M460 90 H470 V370 H460"/>
+        <rect class="proc" x="470" y="396" width="34" height="48" rx="3"/>
+        <line class="proc" x1="478" y1="396" x2="478" y2="444"/>
+        <line class="proc" x1="488" y1="396" x2="488" y2="444"/>
+        <line class="proc" x1="498" y1="396" x2="498" y2="444"/>
+        <text x="455" y="390">PLC-01</text>
       </svg>
     </div>
   </div>
@@ -370,11 +385,11 @@
       </div>
       <div class="contact-item">
         <span class="mono">LinkedIn</span>
-        <a href="https://linkedin.com/company/averon-automation" target="_blank" rel="noopener">linkedin.com/company/averon-automation</a>
+        <a href="https://www.linkedin.com/company/averon-automation" target="_blank" rel="noopener">linkedin.com/company/averon-automation</a>
       </div>
       <div class="contact-item">
         <span class="mono">Location</span>
-        <span>Vadodara, Gujarat, India</span>
+        <span>Ahmedabad, Gujarat, India</span>
       </div>
     </div>
   </section>
@@ -412,15 +427,15 @@
   <div class="eyebrow" style="margin-top:90px;">Platforms we work with</div>
   <h2>PLC / HMI &amp; SCADA technologies</h2>
   <div class="partner-grid">
-    <div class="partner-badge">Mitsubishi Electric</div>
-    <div class="partner-badge">Delta</div>
-    <div class="partner-badge">Siemens</div>
-    <div class="partner-badge">Allen-Bradley</div>
-    <div class="partner-badge">Schneider Electric</div>
-    <div class="partner-badge">zenon</div>
-    <div class="partner-badge">FT Optics</div>
+    <div class="partner-badge"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mitsubishi_Electric_logo.svg" alt="Mitsubishi Electric" style="height:22px;"></div>
+    <div class="partner-badge"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/DeltaPSU-Logo.svg" alt="Delta Electronics" style="height:26px;"></div>
+    <div class="partner-badge"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Siemens-logo.svg" alt="Siemens" style="height:24px;"></div>
+    <div class="partner-badge"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Rockwell_Automation_logo_(2019).svg" alt="Allen-Bradley / Rockwell Automation" style="height:22px;"></div>
+    <div class="partner-badge"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/SchneiderElectric_Logo.svg" alt="Schneider Electric" style="height:26px;"></div>
+    <div class="partner-badge" style="font-family:var(--sans); font-weight:600; font-size:1rem; color:var(--navy-deep);">zenon</div>
+    <div class="partner-badge" style="font-family:var(--sans); font-weight:600; font-size:1rem; color:var(--navy-deep);">FT Optix</div>
   </div>
-  <p class="partner-note">Brand names shown are the property of their respective owners and are used here solely to indicate platform experience. No endorsement or partnership with these companies is implied. Placeholder typographic badges are used above — swap in official logo files here once available, subject to each brand's usage guidelines.</p>
+  <p class="partner-note">Brand names and logos shown are the property of their respective owners and are used here solely to indicate platform experience. No endorsement or partnership with these companies is implied.</p>
 </section>
 
 <footer>
