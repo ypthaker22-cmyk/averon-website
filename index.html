@@ -402,6 +402,11 @@
     display:flex; align-items:center; justify-content:center;
     min-width:120px; min-height:56px;
   }
+  .partner-badge img{
+    filter:grayscale(100%); opacity:.6;
+    transition:filter .25s ease, opacity .25s ease;
+  }
+  .partner-badge:hover img{ filter:grayscale(0%); opacity:1; }
   .partner-note{margin-top:24px; font-family:var(--mono); font-size:0.68rem; color:var(--steel); letter-spacing:0.02em; max-width:640px; line-height:1.6; text-transform:none;}
 
   /* ---------- WHY ---------- */
@@ -461,6 +466,32 @@
   @media (min-width:761px){
     .partners{ padding-left:32px; padding-right:32px; }
   }
+
+  /* Contact form */
+  .contact-form{ margin-top:34px; display:grid; grid-template-columns:1fr 1fr; gap:18px 24px; max-width:760px; }
+  .contact-form .field{ display:flex; flex-direction:column; }
+  .contact-form .field.full{ grid-column:1 / -1; }
+  .contact-form label{ font-family:var(--mono); font-size:0.66rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--steel); margin-bottom:8px; }
+  .contact-form input, .contact-form textarea{
+    font-family:var(--serif); font-size:1rem; color:var(--ink);
+    background:var(--paper-dim); border:1px solid var(--line); border-radius:2px;
+    padding:12px 14px; outline:none; transition:border-color .2s ease, box-shadow .2s ease;
+  }
+  .contact-form textarea{ resize:vertical; min-height:120px; }
+  .contact-form input:focus, .contact-form textarea:focus{ border-color:var(--orange); box-shadow:0 0 0 2px rgba(238,122,30,0.15); }
+  .contact-form .hp{ position:absolute; left:-9999px; opacity:0; height:0; width:0; overflow:hidden; }
+  .contact-form .form-actions{ grid-column:1 / -1; display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
+  .contact-form button{
+    font-family:var(--mono); font-size:0.74rem; letter-spacing:0.08em; text-transform:uppercase;
+    background:var(--navy); color:var(--paper); border:none; padding:13px 26px; border-radius:2px;
+    cursor:pointer; transition:background .2s ease;
+  }
+  .contact-form button:hover{ background:var(--navy-deep); }
+  .contact-form button:disabled{ opacity:0.6; cursor:default; }
+  .form-status{ font-family:var(--mono); font-size:0.72rem; letter-spacing:0.04em; }
+  .form-status.ok{ color:var(--navy); }
+  .form-status.err{ color:#B23A2E; }
+  @media (max-width:620px){ .contact-form{ grid-template-columns:1fr; } }
 </style>
 <noscript><style>.reveal{opacity:1 !important; transform:none !important;}</style></noscript>
 </head>
@@ -808,6 +839,36 @@
     <div class="eyebrow">Get in touch</div>
     <h2>Have a project, or a system that needs attention?</h2>
     <p class="body-text">Tell us what you're running and what you're trying to fix or build — we'll tell you plainly whether we're a fit.</p>
+    <form class="contact-form" id="contactForm">
+      <input type="hidden" name="access_key" value="966f90fd-5cd3-4911-ac88-b645f583cd96">
+      <input type="hidden" name="subject" value="New enquiry from Averon Automation website">
+      <input type="hidden" name="from_name" value="Averon Automation Website">
+      <input type="checkbox" name="botcheck" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <div class="field">
+        <label for="cf-name">Name</label>
+        <input id="cf-name" type="text" name="name" required>
+      </div>
+      <div class="field">
+        <label for="cf-email">Email</label>
+        <input id="cf-email" type="email" name="email" required>
+      </div>
+      <div class="field">
+        <label for="cf-phone">Phone</label>
+        <input id="cf-phone" type="tel" name="phone">
+      </div>
+      <div class="field">
+        <label for="cf-company">Company</label>
+        <input id="cf-company" type="text" name="company">
+      </div>
+      <div class="field full">
+        <label for="cf-message">Message</label>
+        <textarea id="cf-message" name="message" required></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="submit" id="cf-submit">Send message</button>
+        <span class="form-status" id="cf-status" role="status" aria-live="polite"></span>
+      </div>
+    </form>
     <div class="contact-box">
       <div class="contact-item">
         <span class="mono">Phone</span>
@@ -907,6 +968,40 @@
     }
     updateClock();
     setInterval(updateClock, 1000);
+  }
+
+  // Contact form submission (Web3Forms)
+  const cf = document.getElementById('contactForm');
+  if (cf) {
+    const status = document.getElementById('cf-status');
+    const btn = document.getElementById('cf-submit');
+    cf.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      status.className = 'form-status';
+      status.textContent = 'Sending…';
+      btn.disabled = true;
+      try {
+        const res = await fetch('https://api.web3forms.com/submit', {
+          method: 'POST',
+          headers: { 'Accept': 'application/json' },
+          body: new FormData(cf)
+        });
+        const data = await res.json();
+        if (data.success) {
+          cf.reset();
+          status.className = 'form-status ok';
+          status.textContent = "Thanks — your message is in. We'll be in touch shortly.";
+        } else {
+          status.className = 'form-status err';
+          status.textContent = 'Something went wrong. Please email hello@averonautomation.com directly.';
+        }
+      } catch (err) {
+        status.className = 'form-status err';
+        status.textContent = 'Network error. Please email hello@averonautomation.com directly.';
+      } finally {
+        btn.disabled = false;
+      }
+    });
   }
 </script>
 
