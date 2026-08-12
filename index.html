@@ -394,11 +394,11 @@
   .ind-card .num{font-family:var(--mono); font-size:0.62rem; color:var(--orange); letter-spacing:0.1em; margin-top:14px;}
   .ind-card h3{color:#FBF9F4; font-size:0.92rem; margin-top:4px; font-weight:600;}
   .ind-detail p{color:#AEB9D6; font-size:0.78rem; margin-top:6px; font-family:var(--serif); line-height:1.45;}
+  .ind-detail{ transition: opacity .3s ease; }
   @media (hover:hover) and (pointer:fine){
-    .ind-detail{ max-height:0; overflow:hidden; transition: max-height .35s ease; }
-    .ind-card:hover .ind-detail{ max-height:90px; }
+    .ind-detail{ opacity:0; }
+    .ind-card:hover .ind-detail{ opacity:1; }
   }
-  @media not all and (hover:hover){ .ind-detail{ max-height:none; } }
   @media (max-width:1000px){ .ind-grid{grid-template-columns:repeat(3,1fr);} }
   @media (max-width:620px){ .ind-grid{grid-template-columns:repeat(2,1fr);} }
 
