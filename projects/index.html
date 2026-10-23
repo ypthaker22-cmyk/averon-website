@@ -13,6 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
 <style>
 :root{
   --navy:#1B2A41;--navy2:#24385A;--navy3:#33507F;--orange:#E8702A;--orange-l:#FDEBDD;
@@ -184,6 +185,28 @@ table.tbl{width:100%;border-collapse:collapse}
 .row-actions.stack{flex-direction:column;align-items:stretch;gap:4px}
 .row-actions.stack .btn{justify-content:center}
 .row-actions.stack .icon-btn{align-self:flex-end}
+/* print report */
+#printArea{display:none}
+.rep{font-family:'Space Grotesk',Arial,sans-serif;color:#111;font-size:11px;line-height:1.4}
+.rep-head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #E8702A;padding-bottom:8px;margin-bottom:12px}
+.rep-brand{font-size:18px;font-weight:700;color:#1B2A41;letter-spacing:.5px}
+.rep-title{font-size:15px;font-weight:700;color:#1B2A41}
+.rep-sub{color:#667085;font-size:10px;font-weight:400}
+.rep h3{font-size:12px;color:#1B2A41;margin:14px 0 5px;border-bottom:1px solid #ddd;padding-bottom:3px}
+.rep table{width:100%;border-collapse:collapse;margin-bottom:4px}
+.rep-t th{background:#1B2A41;color:#fff;text-align:left;padding:4px 6px;font-size:10px}
+.rep-t td{border-bottom:1px solid #e5e5e5;padding:3px 6px;vertical-align:top}
+.rep-kv td{padding:3px 6px;border-bottom:1px solid #eee;vertical-align:top}
+.rep-kv td:nth-child(odd){width:16%;color:#475467}
+.rep-foot{margin-top:16px;color:#98A2B3;font-size:9px;text-align:right}
+@media print{
+  body.printing > *:not(#printArea){display:none!important}
+  body.printing{background:#fff}
+  body.printing #printArea{display:block}
+  .rep-t th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .rep tr{page-break-inside:avoid}
+  @page{size:A4;margin:12mm}
+}
 </style>
 </head>
 <body>
@@ -219,6 +242,7 @@ table.tbl{width:100%;border-collapse:collapse}
 </div>
 
 <div id="modalRoot"></div>
+<div id="printArea"></div>
 <div id="toast" class="hidden"></div>
 <div id="loading" class="hidden"><div class="spin"></div><span id="loadingTxt">Loading…</span></div>
 
@@ -234,8 +258,10 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 /* ---------------- constants ---------------- */
 const STAGES = ['Design / FDS','Panel build','PLC/HMI development','FAT','Dispatch','Installation','Commissioning','SAT','Handover'];
 const STAGE_WEIGHTS = [12,12,20,8,3,10,15,10,10]; // used by "Auto-plan"
+const SAT_SEQ = 8, HANDOVER_SEQ = 9;
 const EXP_CATS = ['Hardware','Panel fabrication','Bought-out items','Software/licenses','Travel','Lodging & food','Subcontract','Misc'];
 const BUDGET_CATS = ['Labour', ...EXP_CATS];
+const PUR_CATS = ['Hardware','Bought-out items','Software/licenses','Panel fabrication'];
 const SCOPES = ['PLC','HMI','SCADA','Panel'];
 const PLATFORMS = ['Siemens','Mitsubishi','Delta','Allen-Bradley / Rockwell','Schneider','zenon','FT Optix','Multiple','Other'];
 const P_STATUS = ['Active','On Hold','Completed','Cancelled'];
@@ -243,24 +269,48 @@ const S_STATUS = ['Not Started','In Progress','Done','Skipped'];
 const T_STATUS = ['Open','In Progress','Done'];
 const T_PRIORITY = ['Low','Normal','High'];
 const PAY_MODES = ['NEFT/RTGS','Cheque','UPI','Cash','Other'];
+const PU_SOURCE = ['FAT','SAT','Commissioning','Internal'];
+const PU_CAT = ['Hardware','Software','Wiring','Documentation','Other'];
+const PU_SEV = ['Critical','Major','Minor'];
+const PU_STATUS = ['Open','In Progress','Closed','Deferred'];
+const DOC_STATUS = ['Not Started','Draft','Submitted','Approved','Not Applicable'];
+const SC_TYPES = ['Warranty','AMC','Chargeable'];
+const SC_STATUS = ['Open','Attended','Closed'];
+const OF_STATUS = ['Enquiry','Offer Sent','Negotiation','Won','Lost','Dropped'];
+const OF_OPEN = ['Enquiry','Offer Sent','Negotiation'];
+const FU_MODES = ['Call','Visit','Email','WhatsApp','Meeting'];
+const OF_SOURCES = ['Existing client','Referral','Website','Exhibition','Cold call','OEM / Partner','Other'];
+const COMPANY = { name:'Averon Automation', city:'Ahmedabad, Gujarat', web:'averonautomation.com', email:'hello@averonautomation.com' };
+
 const TABLES = {clients:'clients',engineers:'engineers',projects:'projects',stages:'project_stages',tasks:'tasks',
-  timeLogs:'time_logs',expenses:'expenses',budget:'project_budget',milestones:'payment_milestones',receipts:'payment_receipts'};
+  timeLogs:'time_logs',expenses:'expenses',budget:'project_budget',milestones:'payment_milestones',receipts:'payment_receipts',
+  punch:'punch_items',docs:'project_documents',docTypes:'doc_types',purchases:'purchase_items',amc:'amc_contracts',
+  service:'service_calls',offers:'crm_offers',revisions:'crm_revisions',followups:'crm_followups',members:'project_members',users:'app_users'};
+// Engineers read money-free views instead of these tables; admin-only tables are not loaded at all
+const ENG_SRC = { projects:'v_eng_projects', engineers:'v_eng_engineers', timeLogs:'v_eng_time', purchases:'v_eng_purchases', service:'v_eng_service' };
+const ADMIN_ONLY = ['expenses','budget','milestones','receipts','amc','offers','revisions','followups','members','users'];
+const NO_ID = ['project_members','app_users'];
 
 const ICONS = {
   dashboard:'<path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z"/>',
+  crm:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
   projects:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
   tasks:'<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>',
   entry:'<path d="M12 5v14M5 12h14"/>',
+  service:'<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
   receivables:'<path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
   masters:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
   backup:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>'
 };
-const NAV = [['dashboard','Dashboard'],['projects','Projects'],['tasks','Tasks'],['entry','Quick Entry'],['receivables','Receivables'],['masters','Masters'],['backup','Backup']];
+const NAV_ADMIN = [['dashboard','Dashboard'],['crm','Sales / CRM'],['projects','Projects'],['tasks','Tasks'],['entry','Quick Entry'],['service','Service & AMC'],['receivables','Receivables'],['masters','Masters'],['backup','Export & Backup']];
+const NAV_ENG = [['dashboard','Dashboard'],['projects','My Projects'],['tasks','Tasks'],['entry','Log Time'],['service','Service Calls']];
 
 /* ---------------- state ---------------- */
 let S = {}; Object.keys(TABLES).forEach(k => S[k] = []);
-let USER = null;
-const UI = { projSearch:'', projStatus:'Active', taskProject:'', taskStatus:'open', masterTab:'clients' };
+let USER = null, ROLE = 'admin', MY_ENG = null;
+const isAdmin = () => ROLE === 'admin';
+const UI = { projSearch:'', projStatus:'Active', taskProject:'', taskStatus:'open', masterTab:'clients',
+  crmSearch:'', crmStatus:'open', serviceTab:'calls', punchFilter:'open' };
 
 /* ---------------- utils ---------------- */
 const $ = s => document.querySelector(s);
@@ -272,8 +322,10 @@ const pct = v => (v === null || v === undefined || !isFinite(v)) ? '—' : (Math
 const today = () => new Date().toLocaleDateString('en-CA', {timeZone:'Asia/Kolkata'});
 const dms = s => Date.parse(s + 'T00:00:00Z');
 const addDays = (s, n) => new Date(dms(s) + n * 86400000).toISOString().slice(0, 10);
+const addMonths = (s, m) => { const d = new Date(dms(s)); d.setUTCMonth(d.getUTCMonth() + m); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); };
 const daysBetween = (a, b) => Math.round((dms(b) - dms(a)) / 86400000);
 const fd = s => { if (!s) return '—'; const [y, m, d] = String(s).slice(0, 10).split('-'); return `${d}-${m}-${y}`; };
+const fyOf = s => { const y = +s.slice(2, 4), m = +s.slice(5, 7); return m >= 4 ? `${y}-${y + 1}` : `${y - 1}-${y}`; };
 const debounce = (fn, ms = 250) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 const opt = (arr, sel, blank) => (blank !== undefined ? `<option value="">${esc(blank)}</option>` : '') +
   arr.map(o => { const v = typeof o === 'object' ? o.v : o, l = typeof o === 'object' ? o.l : o;
@@ -282,9 +334,12 @@ const opt = (arr, sel, blank) => (blank !== undefined ? `<option value="">${esc(
 const P = id => S.projects.find(p => p.id === id);
 const C = id => S.clients.find(c => c.id === id);
 const E = id => S.engineers.find(e => e.id === id);
+const OFR = id => S.offers.find(o => o.id === id);
 const clientName = id => C(id)?.name || '—';
+const engName = id => E(id)?.name || '—';
 const stageName = seq => seq ? (STAGES[seq - 1] || '—') : '—';
 const projLabel = p => p ? `${p.project_no} · ${p.name}` : '—';
+const offerNo = o => o.offer_no + (o.rev ? '-R' + o.rev : '');
 
 function toast(msg, err) {
   const t = $('#toast'); t.textContent = msg; t.className = err ? 'err' : ''; clearTimeout(toast._t);
@@ -301,10 +356,13 @@ function niceErr(e) {
 }
 
 /* ---------------- data layer ---------------- */
+const srcOf = k => isAdmin() ? TABLES[k] : (ENG_SRC[k] || (ADMIN_ONLY.includes(k) ? null : TABLES[k]));
 async function fetchAll(table) {
   let out = [], from = 0;
   for (;;) {
-    const { data, error } = await sb.from(table).select('*').order('created_at', {ascending:true}).order('id', {ascending:true}).range(from, from + 999);
+    let q = sb.from(table).select('*').order('created_at', {ascending:true});
+    if (!NO_ID.includes(table)) q = q.order('id', {ascending:true});
+    const { data, error } = await q.range(from, from + 999);
     if (error) throw error;
     out = out.concat(data || []);
     if (!data || data.length < 1000) break;
@@ -312,15 +370,11 @@ async function fetchAll(table) {
   }
   return out;
 }
-async function loadAll() {
-  const keys = Object.keys(TABLES);
-  const res = await Promise.all(keys.map(k => fetchAll(TABLES[k])));
-  keys.forEach((k, i) => S[k] = res[i]);
-}
 async function reload(...keys) {
-  const res = await Promise.all(keys.map(k => fetchAll(TABLES[k])));
+  const res = await Promise.all(keys.map(k => srcOf(k) ? fetchAll(srcOf(k)) : Promise.resolve([])));
   keys.forEach((k, i) => S[k] = res[i]);
 }
+const loadAll = () => reload(...Object.keys(TABLES));
 async function dbInsert(key, vals) {
   const { data, error } = await sb.from(TABLES[key]).insert(vals).select();
   if (error) throw error; await reload(key); return data && data[0];
@@ -332,6 +386,10 @@ async function dbUpdate(key, id, vals) {
 async function dbDelete(key, id, ...also) {
   const { error } = await sb.from(TABLES[key]).delete().eq('id', id);
   if (error) throw error; await reload(key, ...also);
+}
+async function rpc(fn, args) {
+  const { data, error } = await sb.rpc(fn, args);
+  if (error) throw error; return Array.isArray(data) ? data[0] : data;
 }
 
 /* ---------------- calculations ---------------- */
@@ -349,13 +407,36 @@ function msCalc(m) {
   const overdue = status !== 'Paid' && m.due_date && m.due_date < today();
   return { received, invoiced, inv, gross, outstanding, status, overdue };
 }
+// Purchase: cost counts when received (pro-rata for part receipts); the rest is "committed"
+function purCalc(x) {
+  if (x.status === 'Cancelled') return { actual: 0, committed: 0, late: false };
+  const share = Math.min(num(x.received_qty) / Math.max(num(x.qty), 0.0001), 1);
+  const actual = num(x.amount) * share, committed = num(x.amount) - actual;
+  const late = x.status !== 'Received' && x.expected_date && x.expected_date < today();
+  return { actual, committed, late };
+}
+const purStatus = (qty, rq) => num(rq) <= 0 ? 'Ordered' : num(rq) + 1e-9 < num(qty) ? 'Partly Received' : 'Received';
+const docDone = d => d.status === 'Approved' || d.status === 'Not Applicable';
+const backupMissing = d => d.is_backup && d.status !== 'Not Applicable' && (!d.rev_date || !d.link);
+function warrantyOf(p, st) {
+  const ho = p.handover_date || (st || S.stages.filter(s => s.project_id === p.id)).find(s => s.seq === HANDOVER_SEQ && s.status === 'Done')?.actual_end;
+  if (!ho) return null;
+  const end = addMonths(ho, num(p.warranty_months ?? 12));
+  const left = daysBetween(today(), end);
+  return { start: ho, end, left, status: left < 0 ? 'Expired' : left <= 30 ? 'Expiring' : 'Active' };
+}
 function projCalc(p) {
   const id = p.id;
   const st = S.stages.filter(s => s.project_id === id).sort((a, b) => a.seq - b.seq);
   const tl = S.timeLogs.filter(t => t.project_id === id);
   const ex = S.expenses.filter(e => e.project_id === id);
+  const pu = S.purchases.filter(x => x.project_id === id);
   const ms = S.milestones.filter(m => m.project_id === id);
-  const labour = sum(tl, 'cost'), exp = sum(ex, 'amount'), cost = labour + exp, po = num(p.po_value);
+  const punch = S.punch.filter(x => x.project_id === id);
+  const docs = S.docs.filter(d => d.project_id === id).sort((a, b) => a.seq - b.seq || a.name.localeCompare(b.name));
+  const pc = pu.map(purCalc);
+  const labour = sum(tl, 'cost'), purActual = sum(pc, 'actual'), committed = sum(pc, 'committed');
+  const exp = sum(ex, 'amount') + purActual, cost = labour + exp, po = num(p.po_value);
   const margin = po - cost, marginPct = po ? margin / po * 100 : null;
   const counted = st.filter(s => s.status !== 'Skipped');
   const done = counted.filter(s => s.status === 'Done').length;
@@ -366,7 +447,16 @@ function projCalc(p) {
   const msPct = sum(ms, m => m.pct), msAmt = sum(ms, 'amount');
   const lateStage = st.some(s => s.status !== 'Done' && s.status !== 'Skipped' && s.planned_end && s.planned_end < today());
   const days = sum(tl, 'days');
-  return { st, tl, ex, ms, labour, exp, cost, po, margin, marginPct, progress, cur, invoicedGross, received, outstanding, msPct, msAmt, lateStage, days };
+  const openPunch = punch.filter(x => x.status === 'Open' || x.status === 'In Progress');
+  const critical = openPunch.filter(x => x.severity === 'Critical');
+  const docsDone = docs.filter(docDone).length, backupsMissing = docs.filter(backupMissing);
+  const latePur = pu.filter((x, i) => pc[i].late);
+  return { st, tl, ex, pu, pc, ms, punch, docs, labour, purActual, committed, exp, cost, po, margin, marginPct, progress, cur,
+    invoicedGross, received, outstanding, msPct, msAmt, lateStage, days, openPunch, critical, docsDone, backupsMissing, latePur,
+    warranty: warrantyOf(p, st) };
+}
+function catActual(c, cat) {
+  return sum(c.ex.filter(e => e.category === cat), 'amount') + sum(c.pu.filter((x, i) => x.category === cat), x => purCalc(x).actual);
 }
 
 /* ---------------- badges ---------------- */
@@ -391,9 +481,10 @@ function fieldHTML(f, v) {
   switch (f.type) {
     case 'select': inp = `<select id="${id}" name="${f.k}">${opt(f.options, val, f.blank === false ? undefined : (f.blank || '— Select —'))}</select>`; break;
     case 'textarea': inp = `<textarea id="${id}" name="${f.k}" placeholder="${esc(f.placeholder || '')}">${esc(val)}</textarea>`; break;
-    case 'checks': { const arr = Array.isArray(val) ? val : [];
-      inp = `<div class="checks">${f.options.map(o => `<label><input type="checkbox" name="${f.k}" value="${esc(o)}" ${arr.includes(o) ? 'checked' : ''}> ${esc(o)}</label>`).join('')}</div>`; break; }
-    case 'bool': inp = `<div class="checks"><label><input type="checkbox" name="${f.k}" ${val === true || val === '' && f.default ? 'checked' : ''}> ${esc(f.text || 'Yes')}</label></div>`; break;
+    case 'checks': { const arr = Array.isArray(val) ? val.map(String) : [];
+      inp = `<div class="checks">${f.options.length ? f.options.map(o => { const v = typeof o === 'object' ? o.v : o, l = typeof o === 'object' ? o.l : o;
+        return `<label><input type="checkbox" name="${f.k}" value="${esc(v)}" ${arr.includes(String(v)) ? 'checked' : ''}> ${esc(l)}</label>`; }).join('') : '<span class="muted small">Nothing to choose yet</span>'}</div>`; break; }
+    case 'bool': inp = `<div class="checks"><label><input type="checkbox" name="${f.k}" ${val === true ? 'checked' : ''}> ${esc(f.text || 'Yes')}</label></div>`; break;
     default: inp = `<input id="${id}" name="${f.k}" type="${f.type || 'text'}" value="${esc(val)}" ${f.step ? `step="${f.step}"` : ''} ${f.min !== undefined ? `min="${f.min}"` : ''} placeholder="${esc(f.placeholder || '')}" ${f.type === 'number' ? 'inputmode="decimal"' : ''}>`;
   }
   return `<div class="fld ${f.full || f.type === 'textarea' || f.type === 'checks' ? 'full' : ''}"><label for="${id}">${esc(f.label)}${req}</label>${inp}${f.help ? `<div class="help">${esc(f.help)}</div>` : ''}</div>`;
@@ -467,13 +558,23 @@ async function guarded(btn, fn) {
    ===================================================================== */
 const projOpts = (onlyOpen) => S.projects.filter(p => !onlyOpen || p.status === 'Active' || p.status === 'On Hold')
   .slice().sort((a, b) => b.project_no.localeCompare(a.project_no)).map(p => ({ v: p.id, l: projLabel(p) }));
+const allProjOpts = () => projOpts(false);
 const stageOpts = () => STAGES.map((s, i) => ({ v: i + 1, l: `${i + 1}. ${s}` }));
 const engOpts = (incl) => S.engineers.filter(e => e.active || e.id === incl).map(e => ({ v: e.id, l: e.name }));
+const clientOpts = () => S.clients.slice().sort((a, b) => a.name.localeCompare(b.name)).map(c => ({ v: c.id, l: c.name }));
+
+async function ensureClient(v) {
+  if (v.new_client) {
+    const ex = S.clients.find(c => c.name.toLowerCase() === v.new_client.toLowerCase());
+    v.client_id = ex ? ex.id : (await dbInsert('clients', { name: v.new_client })).id;
+  }
+  delete v.new_client;
+}
 
 function projectFields(isNew) {
   return [
     { k:'name', label:'Project name', required:true, full:true, placeholder:'e.g. Filling line automation' },
-    { k:'client_id', label:'Client', type:'select', options:S.clients.map(c => ({ v:c.id, l:c.name })) },
+    { k:'client_id', label:'Client', type:'select', options:clientOpts() },
     ...(isNew ? [{ k:'new_client', label:'…or new client name', help:'Creates the client if not in the list' }] : []),
     { k:'status', label:'Status', type:'select', options:P_STATUS, blank:false, default:'Active' },
     { type:'section', label:'Purchase order' },
@@ -482,36 +583,58 @@ function projectFields(isNew) {
     { k:'po_value', label:'PO value (₹, excl. GST)', type:'number', step:'0.01', min:0 },
     { k:'platform', label:'Platform', type:'select', options:PLATFORMS },
     { k:'scope', label:'Scope', type:'checks', options:SCOPES },
-    { type:'section', label:'Schedule' },
+    { type:'section', label:'Schedule & warranty' },
     { k:'start_date', label:'Start date', type:'date' },
     { k:'target_date', label:'Target completion', type:'date' },
+    ...(isNew ? [] : [{ k:'handover_date', label:'Handover date', type:'date', help:'Blank = date the Handover stage was marked done' }]),
+    { k:'warranty_months', label:'Warranty (months)', type:'number', step:1, min:0, default:12 },
     { k:'remarks', label:'Remarks', type:'textarea' }
   ];
+}
+function checkDates(v) {
+  if (v.start_date && v.target_date && v.target_date < v.start_date) throw new Error('Target date is before start date');
+  if (v.warranty_months === null) v.warranty_months = 12;
 }
 function openProjectForm(p) {
   const isNew = !p;
   openForm({
-    title: isNew ? 'New project' : `Edit ${p.project_no}`, fields: projectFields(isNew), values: p || { status:'Active', po_date: today() }, wide:true,
+    title: isNew ? 'New project' : `Edit ${p.project_no}`, fields: projectFields(isNew), values: p || { status:'Active', po_date: today(), warranty_months: 12 }, wide:true,
     onSave: async v => {
-      if (v.start_date && v.target_date && v.target_date < v.start_date) throw new Error('Target date is before start date');
+      checkDates(v);
       if (isNew) {
-        if (v.new_client) {
-          const ex = S.clients.find(c => c.name.toLowerCase() === v.new_client.toLowerCase());
-          v.client_id = ex ? ex.id : (await dbInsert('clients', { name: v.new_client })).id;
-        }
-        delete v.new_client;
-        const { data, error } = await sb.rpc('create_project', { p: v });
-        if (error) throw error;
-        await reload('projects', 'stages');
-        const row = Array.isArray(data) ? data[0] : data;
+        await ensureClient(v);
+        const row = await rpc('create_project', { p: v });
+        await reload('projects', 'stages', 'docs');
         toast(`Created ${row.project_no}`);
         location.hash = `#/project/${row.id}/overview`;
-      } else {
-        await dbUpdate('projects', p.id, v); toast('Project updated');
-      }
+      } else { await dbUpdate('projects', p.id, v); toast('Project updated'); }
     },
-    onDelete: isNew ? null : async () => { await dbDelete('projects', p.id, 'stages', 'tasks', 'timeLogs', 'expenses', 'budget', 'milestones', 'receipts'); location.hash = '#/projects'; }
+    onDelete: isNew ? null : async () => { await dbDelete('projects', p.id, 'stages', 'tasks', 'timeLogs', 'expenses', 'budget', 'milestones', 'receipts', 'punch', 'docs', 'purchases', 'members', 'service', 'amc', 'offers'); location.hash = '#/projects'; }
   });
+}
+function openTeamForm(p) {
+  const cur = S.members.filter(m => m.project_id === p.id).map(m => m.engineer_id);
+  openForm({
+    title: `Team — ${p.project_no}`,
+    note: 'Engineers with a login see only the projects they are assigned to, and never see any money figures.',
+    fields: [{ k:'team', label:'Engineers on this project', type:'checks', options: S.engineers.filter(e => e.active || cur.includes(e.id)).map(e => ({ v: e.id, l: e.name })) }],
+    values: { team: cur },
+    onSave: async v => {
+      const add = v.team.filter(id => !cur.includes(id)), del = cur.filter(id => !v.team.includes(id));
+      if (add.length) { const { error } = await sb.from('project_members').insert(add.map(id => ({ project_id: p.id, engineer_id: id }))); if (error) throw error; }
+      for (const id of del) { const { error } = await sb.from('project_members').delete().eq('project_id', p.id).eq('engineer_id', id); if (error) throw error; }
+      await reload('members'); toast('Team updated');
+    }
+  });
+}
+function stageBlock(s, newStatus) {
+  if (newStatus !== 'Done') return null;
+  const c = projCalc(P(s.project_id));
+  if ((s.seq === SAT_SEQ || s.seq === HANDOVER_SEQ) && c.critical.length)
+    return `${c.critical.length} critical punch item(s) are still open. Close them before marking ${s.stage} done.`;
+  if (s.seq === HANDOVER_SEQ && c.backupsMissing.length)
+    return `Program backup not recorded: ${c.backupsMissing.map(d => d.name).join(', ')}. Fill backup date and location in Documents first.`;
+  return null;
 }
 function openStageForm(s) {
   openForm({
@@ -527,6 +650,7 @@ function openStageForm(s) {
     onSave: async v => {
       if (v.planned_start && v.planned_end && v.planned_end < v.planned_start) throw new Error('Planned end is before planned start');
       if (v.actual_start && v.actual_end && v.actual_end < v.actual_start) throw new Error('Actual end is before actual start');
+      const blk = stageBlock(s, v.status); if (blk) throw new Error(blk);
       if (v.status === 'Done' && !v.actual_end) v.actual_end = today();
       if ((v.status === 'Done' || v.status === 'In Progress') && !v.actual_start) v.actual_start = v.actual_end && v.actual_end < today() ? v.actual_end : today();
       await dbUpdate('stages', s.id, v); toast('Stage updated');
@@ -557,7 +681,7 @@ function openTaskForm(t, projectId) {
   });
 }
 function timeFields(isNew, inclEng) {
-  return [
+  const f = [
     { k:'project_id', label:'Project', type:'select', options:projOpts(isNew), required:true, full:true },
     { k:'engineer_id', label:'Engineer', type:'select', options:engOpts(inclEng), required:true },
     { k:'log_date', label:'Date', type:'date', required:true, default: today() },
@@ -567,22 +691,31 @@ function timeFields(isNew, inclEng) {
     { k:'rate_per_day', label:'Rate / day (₹)', type:'number', step:'0.01', min:0, help:'Filled from engineer master; saved with this entry' },
     { k:'description', label:'Work done', type:'textarea' }
   ];
+  return isAdmin() ? f : f.filter(x => x.k !== 'engineer_id' && x.k !== 'rate_per_day');
 }
 const timeOnChange = (k, v, set) => { if (k === 'engineer_id') { const e = E(v.engineer_id); if (e) set('rate_per_day', e.rate_per_day); } };
 function validateTime(v) {
   if (!(v.days > 0) || v.days > 31) throw new Error('Days must be between 0.5 and 31');
   v.stage_seq = v.stage_seq ? Number(v.stage_seq) : null;
-  if (v.rate_per_day === null) delete v.rate_per_day; // DB snapshots engineer rate
+  if (v.rate_per_day === null) delete v.rate_per_day;
+}
+async function saveTime(v, id) {
+  validateTime(v);
+  if (isAdmin()) { if (id) await dbUpdate('timeLogs', id, v); else await dbInsert('timeLogs', v); }
+  else { await rpc('eng_save_time', { p: { ...v, id: id || null } }); await reload('timeLogs'); }
 }
 function openTimeForm(t, projectId) {
   const isNew = !t;
-  if (!S.engineers.length) { toast('Add an engineer in Masters first', true); return; }
+  if (isAdmin() && !S.engineers.length) { toast('Add an engineer in Masters first', true); return; }
+  if (!isAdmin() && !MY_ENG) { toast('Your login is not linked to an engineer — ask the admin', true); return; }
   openForm({
     title: isNew ? 'Log time' : 'Edit time entry', fields: timeFields(isNew, t?.engineer_id),
     values: t || { project_id: projectId, log_date: today(), days: 1, location:'Office' },
     onChange: timeOnChange,
-    onSave: async v => { validateTime(v); if (isNew) await dbInsert('timeLogs', v); else await dbUpdate('timeLogs', t.id, v); toast('Time saved'); },
-    onDelete: isNew ? null : () => dbDelete('timeLogs', t.id)
+    onSave: async v => { await saveTime(v, t?.id); toast('Time saved'); },
+    onDelete: isNew ? null : async () => {
+      if (isAdmin()) await dbDelete('timeLogs', t.id); else { await rpc('eng_delete_time', { p_id: t.id }); await reload('timeLogs'); }
+    }
   });
 }
 function expenseFields(isNew) {
@@ -600,6 +733,7 @@ function openExpenseForm(x, projectId) {
   const isNew = !x;
   openForm({
     title: isNew ? 'Add expense' : 'Edit expense', fields: expenseFields(isNew),
+    note: isNew ? 'For hardware ordered against this project, use the <b>Purchases</b> tab instead — received items are counted as cost automatically.' : null,
     values: x || { project_id: projectId, exp_date: today() },
     onSave: async v => { if (v.amount < 0) throw new Error('Amount cannot be negative'); if (isNew) await dbInsert('expenses', v); else await dbUpdate('expenses', x.id, v); toast('Expense saved'); },
     onDelete: isNew ? null : () => dbDelete('expenses', x.id)
@@ -675,6 +809,106 @@ function openBudgetForm(p) {
     }
   });
 }
+function openPunchForm(x, projectId) {
+  const isNew = !x;
+  openForm({
+    title: isNew ? 'New punch item' : `Punch item P-${String(x.item_no).padStart(2, '0')}`, wide: true,
+    fields: [
+      { k:'project_id', label:'Project', type:'select', options:projOpts(isNew), required:true, full:true },
+      { k:'description', label:'Issue / observation', type:'textarea', required:true },
+      { k:'source', label:'Raised during', type:'select', options:PU_SOURCE, blank:false, default:'FAT' },
+      { k:'severity', label:'Severity', type:'select', options:PU_SEV, blank:false, default:'Minor' },
+      { k:'category', label:'Category', type:'select', options:PU_CAT },
+      { k:'raised_by', label:'Raised by', type:'select', options:['Client','Internal'], blank:false, default:'Client' },
+      { k:'owner_engineer_id', label:'Owner', type:'select', options:engOpts(x?.owner_engineer_id), blank:'— Unassigned —' },
+      { k:'target_date', label:'Target date', type:'date' },
+      { k:'status', label:'Status', type:'select', options:PU_STATUS, blank:false, default:'Open' },
+      { k:'closed_date', label:'Closed on', type:'date' },
+      { k:'remarks', label:'Action taken / remarks', type:'textarea' }
+    ],
+    values: x || { project_id: projectId, source:'FAT', severity:'Minor', raised_by:'Client', status:'Open' },
+    onSave: async v => {
+      if (v.status === 'Closed' && !v.closed_date) v.closed_date = today();
+      if (v.status !== 'Closed') v.closed_date = null;
+      if (isNew) await dbInsert('punch', v); else await dbUpdate('punch', x.id, v);
+      toast(isNew ? 'Punch item added' : 'Punch item updated');
+    },
+    onDelete: isNew ? null : () => dbDelete('punch', x.id)
+  });
+}
+function openDocForm(d, projectId) {
+  const isNew = !d, backup = d?.is_backup;
+  openForm({
+    title: isNew ? 'Add document' : d.name,
+    note: backup ? 'Program backup: record the <b>backup date</b> and <b>where it is stored</b> (link or path). Handover cannot be marked done without it.' : null,
+    fields: [
+      { k:'name', label:'Document', required:true, full:true },
+      { k:'status', label:'Status', type:'select', options:DOC_STATUS, blank:false, default:'Not Started' },
+      { k:'rev', label:'Revision', placeholder:'e.g. R0, R1' },
+      { k:'rev_date', label: backup ? 'Backup date' : 'Revision date', type:'date' },
+      { k:'seq', label:'Order', type:'number', step:1, min:1, default:99 },
+      { k:'link', label: backup ? 'Backup location / link' : 'File link (Drive / OneDrive)', full:true, placeholder: backup ? 'e.g. Drive › Averon › AV-26-27-001 › PLC backup' : 'https://drive.google.com/…' },
+      { k:'is_backup', label:'Type', type:'bool', text:'This is a program backup' },
+      { k:'remarks', label:'Remarks', type:'textarea' }
+    ],
+    values: d || { status:'Not Started', seq: 99 },
+    onSave: async v => {
+      if (v.status === 'Not Started' && v.is_backup && v.rev_date && v.link) v.status = 'Approved';
+      else if (v.status === 'Not Started' && (v.rev || v.link)) v.status = 'Draft';
+      if (isNew) await dbInsert('docs', { ...v, project_id: projectId }); else await dbUpdate('docs', d.id, v);
+      toast('Document saved');
+    },
+    onDelete: isNew ? null : () => dbDelete('docs', d.id)
+  });
+}
+function openPurchaseForm(x, projectId) {
+  const isNew = !x;
+  openForm({
+    title: isNew ? 'New purchase item' : `Edit — ${x.item}`, wide: true,
+    fields: [
+      { k:'project_id', label:'Project', type:'select', options:projOpts(isNew), required:true, full:true },
+      { k:'item', label:'Item', required:true, full:true, placeholder:'e.g. S7-1500 CPU 1515-2 PN' },
+      { k:'make', label:'Make' }, { k:'part_no', label:'Part no.' },
+      { k:'qty', label:'Qty', type:'number', step:'0.01', min:0, required:true, default:1 }, { k:'unit', label:'Unit', default:'Nos' },
+      { k:'category', label:'Cost category', type:'select', options:PUR_CATS, blank:false, default:'Hardware' },
+      { k:'amount', label:'Order value (₹, excl. GST)', type:'number', step:'0.01', min:0, required:true },
+      { type:'section', label:'Order' },
+      { k:'vendor', label:'Vendor' }, { k:'po_no', label:'Our PO no.' },
+      { k:'po_date', label:'PO date', type:'date' }, { k:'expected_date', label:'Expected delivery', type:'date' },
+      { type:'section', label:'Receipt' },
+      { k:'received_qty', label:'Received qty', type:'number', step:'0.01', min:0, default:0 }, { k:'received_date', label:'Received on', type:'date' },
+      { k:'bill_no', label:'Vendor bill no.' },
+      { k:'cancelled', label:'Cancelled', type:'bool', text:'Order cancelled' },
+      { k:'remarks', label:'Remarks', type:'textarea' }
+    ],
+    values: x ? { ...x, cancelled: x.status === 'Cancelled' } : { project_id: projectId, qty: 1, unit:'Nos', category:'Hardware', received_qty: 0, po_date: today() },
+    onSave: async v => {
+      if (!(v.qty > 0)) throw new Error('Qty must be more than 0');
+      v.received_qty = num(v.received_qty);
+      if (v.received_qty > v.qty) throw new Error('Received qty is more than ordered qty');
+      if (v.received_qty > 0 && !v.received_date) v.received_date = today();
+      v.status = v.cancelled ? 'Cancelled' : purStatus(v.qty, v.received_qty); delete v.cancelled;
+      if (isNew) await dbInsert('purchases', v); else await dbUpdate('purchases', x.id, v);
+      toast('Purchase saved');
+    },
+    onDelete: isNew ? null : () => dbDelete('purchases', x.id)
+  });
+}
+function openReceiveForm(x) {
+  openForm({
+    title: `Receive — ${x.item}`,
+    fields: [
+      { k:'received_qty', label:`Received qty (of ${num(x.qty)} ${x.unit || ''})`, type:'number', step:'0.01', min:0, required:true },
+      { k:'received_date', label:'Received on', type:'date', required:true },
+      { k:'bill_no', label:'Vendor bill no.' }
+    ],
+    values: { received_qty: x.qty, received_date: today(), bill_no: x.bill_no },
+    onSave: async v => {
+      if (v.received_qty > num(x.qty)) throw new Error('More than ordered qty');
+      await dbUpdate('purchases', x.id, { ...v, status: purStatus(x.qty, v.received_qty) }); toast('Receipt recorded — cost updated');
+    }
+  });
+}
 function openClientForm(c) {
   const isNew = !c;
   openForm({
@@ -701,6 +935,278 @@ function openEngineerForm(e) {
     onDelete: isNew ? null : () => dbDelete('engineers', e.id)
   });
 }
+function openDocTypeForm(d) {
+  const isNew = !d;
+  openForm({
+    title: isNew ? 'New standard document' : 'Edit standard document',
+    note: 'Standard documents are added to every new project. Use "Add missing standard docs" on a project to add new ones to existing projects.',
+    fields: [
+      { k:'name', label:'Document', required:true }, { k:'seq', label:'Order', type:'number', step:1, min:1, default:99 },
+      { k:'is_backup', label:'Type', type:'bool', text:'Program backup (required before handover)' },
+      { k:'active', label:'Active', type:'bool', text:'Add to new projects', default:true }
+    ], values: d || { active: true, seq: 99 },
+    onSave: async v => { if (isNew) await dbInsert('docTypes', v); else await dbUpdate('docTypes', d.id, v); toast('Saved'); },
+    onDelete: isNew ? null : () => dbDelete('docTypes', d.id)
+  });
+}
+function openUserForm(u) {
+  const isNew = !u;
+  openForm({
+    title: isNew ? 'Give a login access' : `Access — ${u.email}`,
+    note: isNew ? 'First create the login in <b>Supabase → Authentication → Users → Add user</b> (email + password, auto-confirm). Then enter the same email here.' : null,
+    fields: [
+      { k:'email', label:'Login email', type:'email', required:true, full:true },
+      { k:'role', label:'Role', type:'select', options:[{ v:'engineer', l:'Engineer — assigned projects, no money' }, { v:'admin', l:'Admin — full access' }], blank:false, default:'engineer' },
+      { k:'engineer_id', label:'Engineer (for time logging)', type:'select', options:engOpts(u?.engineer_id), blank:'— None —', help:'Required for engineers' }
+    ], values: u || { role:'engineer' },
+    onSave: async v => { await rpc('link_user', { p_email: v.email, p_role: v.role, p_engineer: v.engineer_id }); await reload('users'); toast('Access saved'); },
+    onDelete: isNew || u.user_id === USER.id ? null : async () => { await rpc('unlink_user', { p_user: u.user_id }); await reload('users'); }
+  });
+}
+function openAmcForm(a) {
+  const isNew = !a;
+  openForm({
+    title: isNew ? 'New AMC contract' : `AMC — ${a.contract_no || clientName(a.client_id)}`, wide: true,
+    fields: [
+      { k:'client_id', label:'Client', type:'select', options:clientOpts(), required:true },
+      { k:'project_id', label:'Project (optional)', type:'select', options:allProjOpts(), blank:'— Not linked —' },
+      { k:'contract_no', label:'Contract / PO no.' },
+      { k:'value', label:'Contract value (₹, excl. GST)', type:'number', step:'0.01', min:0 },
+      { k:'start_date', label:'Start', type:'date', required:true }, { k:'end_date', label:'End', type:'date', required:true },
+      { k:'visits_included', label:'Visits included', type:'number', step:1, min:0, default:0 },
+      { k:'notes', label:'Notes / scope', type:'textarea' }
+    ], values: a || { start_date: today(), end_date: addMonths(today(), 12) },
+    onChange: (k, v, set) => { if (k === 'project_id' && v.project_id) { const p = P(v.project_id); if (p?.client_id) set('client_id', p.client_id); } },
+    onSave: async v => { if (v.end_date < v.start_date) throw new Error('End is before start'); v.value = num(v.value); v.visits_included = num(v.visits_included);
+      if (isNew) await dbInsert('amc', v); else await dbUpdate('amc', a.id, v); toast('AMC saved'); },
+    onDelete: isNew ? null : () => dbDelete('amc', a.id, 'service')
+  });
+}
+function openServiceForm(s) {
+  const isNew = !s;
+  openForm({
+    title: isNew ? 'New service call' : 'Service call', wide: true,
+    fields: [
+      { k:'client_id', label:'Client', type:'select', options:clientOpts(), required:true },
+      { k:'project_id', label:'Project', type:'select', options:allProjOpts(), blank:'— Not linked —' },
+      { k:'call_date', label:'Call received', type:'date', required:true, default: today() },
+      { k:'call_type', label:'Type', type:'select', options:SC_TYPES, blank:false, default:'Warranty' },
+      { k:'amc_id', label:'AMC contract', type:'select', options:S.amc.map(a => ({ v:a.id, l:`${a.contract_no || 'AMC'} · ${clientName(a.client_id)} (till ${fd(a.end_date)})` })), blank:'— None —' },
+      { k:'status', label:'Status', type:'select', options:SC_STATUS, blank:false, default:'Open' },
+      { k:'issue', label:'Issue reported', type:'textarea', required:true },
+      { type:'section', label:'Visit' },
+      { k:'engineer_id', label:'Engineer', type:'select', options:engOpts(s?.engineer_id), blank:'— Not assigned —' },
+      { k:'visit_date', label:'Visit date', type:'date' },
+      { k:'days', label:'Days spent', type:'number', step:'0.5', min:0, default:0 },
+      { k:'charges', label:'Charges to client (₹, excl. GST)', type:'number', step:'0.01', min:0, default:0, help:'Chargeable calls only' },
+      { k:'closed_date', label:'Closed on', type:'date' },
+      { k:'resolution', label:'Resolution', type:'textarea' }
+    ], values: s || { call_date: today(), call_type:'Warranty', status:'Open', days: 0, charges: 0 },
+    onChange: (k, v, set) => {
+      if (k === 'project_id' && v.project_id) { const p = P(v.project_id); if (p?.client_id) set('client_id', p.client_id);
+        const w = warrantyOf(p); if (w && w.status !== 'Expired') set('call_type', 'Warranty'); }
+      if (k === 'amc_id' && v.amc_id) { set('call_type', 'AMC'); const a = S.amc.find(x => x.id === v.amc_id); if (a) set('client_id', a.client_id); }
+    },
+    onSave: async v => {
+      v.days = num(v.days); v.charges = num(v.charges);
+      if (v.status === 'Closed' && !v.closed_date) v.closed_date = today();
+      if (v.status !== 'Closed') v.closed_date = null;
+      if (isNew) await dbInsert('service', v); else await dbUpdate('service', s.id, v); toast('Service call saved');
+    },
+    onDelete: isNew ? null : () => dbDelete('service', s.id)
+  });
+}
+/* ---------- CRM forms ---------- */
+function offerFields(o) {
+  const isNew = !o;
+  return [
+    { k:'title', label:'Enquiry / offer title', required:true, full:true, placeholder:'e.g. SCADA upgrade for packing line' },
+    { k:'client_id', label:'Client', type:'select', options:clientOpts() },
+    ...(isNew ? [{ k:'new_client', label:'…or new client name' }] : []),
+    { k:'contact_person', label:'Contact person' },
+    { k:'source', label:'Source', type:'select', options:OF_SOURCES },
+    { k:'scope', label:'Scope', type:'checks', options:SCOPES },
+    { k:'platform', label:'Platform', type:'select', options:PLATFORMS },
+    { k:'status', label:'Stage', type:'select', options: o?.status === 'Won' ? ['Won'] : OF_STATUS.filter(s => s !== 'Won'), blank:false, default:'Enquiry' },
+    { type:'section', label:'Value & timing' },
+    { k:'value', label:'Offer value (₹, excl. GST)', type:'number', step:'0.01', min:0 },
+    { k:'probability', label:'Chance of winning (%)', type:'number', step:5, min:0, default:50 },
+    { k:'enquiry_date', label:'Enquiry date', type:'date' },
+    { k:'offer_date', label:'Offer date', type:'date' },
+    { k:'expected_close', label:'Expected decision', type:'date' },
+    ...(isNew ? [] : [{ k:'lost_reason', label:'Lost / dropped reason' }]),
+    { k:'remarks', label:'Remarks', type:'textarea' }
+  ];
+}
+function openOfferForm(o) {
+  const isNew = !o;
+  openForm({
+    title: isNew ? 'New enquiry / offer' : `Edit ${offerNo(o)}`, wide: true, fields: offerFields(o),
+    values: o || { status:'Enquiry', probability: 50, enquiry_date: today() },
+    onSave: async v => {
+      if (v.probability !== null && (v.probability < 0 || v.probability > 100)) throw new Error('Chance must be 0–100%');
+      if (isNew) {
+        await ensureClient(v);
+        const row = await rpc('create_offer', { p: v });
+        await reload('offers', 'revisions'); toast(`Created ${row.offer_no}`); location.hash = `#/offer/${row.id}`;
+      } else {
+        if ((v.status === 'Lost' || v.status === 'Dropped') && !o.lost_date) v.lost_date = today();
+        if (OF_OPEN.includes(v.status)) v.lost_date = null;
+        await dbUpdate('offers', o.id, v); toast('Offer updated');
+      }
+    },
+    onDelete: isNew || o.project_id ? null : async () => { await dbDelete('offers', o.id, 'revisions', 'followups'); location.hash = '#/crm'; }
+  });
+}
+function openReviseForm(o) {
+  openForm({
+    title: `Revise ${offerNo(o)} → R${o.rev + 1}`,
+    fields: [
+      { k:'value', label:'Revised value (₹, excl. GST)', type:'number', step:'0.01', min:0, required:true },
+      { k:'rev_date', label:'Revision date', type:'date', required:true },
+      { k:'notes', label:'What changed', type:'textarea' }
+    ], values: { value: o.value, rev_date: today() },
+    onSave: async v => { await rpc('revise_offer', { p_offer: o.id, p_value: v.value, p_date: v.rev_date, p_notes: v.notes }); await reload('offers', 'revisions'); toast('Revision saved'); }
+  });
+}
+function openFollowupForm(f, offerId) {
+  const isNew = !f;
+  openForm({
+    title: isNew ? 'Log follow-up' : 'Edit follow-up',
+    fields: [
+      { k:'fu_date', label:'Date', type:'date', required:true }, { k:'mode', label:'Mode', type:'select', options:FU_MODES, default:'Call' },
+      { k:'notes', label:'Discussion', type:'textarea', required:true },
+      { k:'next_date', label:'Next follow-up on', type:'date' },
+      ...(isNew ? [] : [{ k:'done', label:'Next follow-up', type:'bool', text:'Done' }])
+    ], values: f || { fu_date: today(), mode:'Call', next_date: addDays(today(), 7) },
+    onSave: async v => {
+      if (isNew) {
+        const open = S.followups.filter(x => x.offer_id === offerId && !x.done).map(x => x.id);
+        if (open.length) { const { error } = await sb.from('crm_followups').update({ done: true }).in('id', open); if (error) throw error; }
+        await dbInsert('followups', { ...v, offer_id: offerId, done: !v.next_date });
+      } else await dbUpdate('followups', f.id, v);
+      toast('Follow-up saved');
+    },
+    onDelete: isNew ? null : () => dbDelete('followups', f.id)
+  });
+}
+function openConvertForm(o) {
+  openForm({
+    title: `Convert ${offerNo(o)} to project`, wide: true,
+    note: 'Enter the PO details. The offer is marked <b>Won</b> and linked to the new project.',
+    fields: projectFields(true).filter(f => f.k !== 'new_client' && f.k !== 'status'),
+    values: { name: o.title, client_id: o.client_id, po_value: o.value, scope: o.scope, platform: o.platform, po_date: today(), warranty_months: 12 },
+    onSave: async v => {
+      checkDates(v); v.status = 'Active';
+      const row = await rpc('convert_offer', { p_offer: o.id, p: v });
+      await reload('projects', 'stages', 'docs', 'offers'); toast(`Won! Created ${row.project_no}`);
+      location.hash = `#/project/${row.id}/overview`;
+    }
+  });
+}
+const nextFollowup = oid => S.followups.filter(f => f.offer_id === oid && !f.done && f.next_date).sort((a, b) => a.next_date.localeCompare(b.next_date))[0]?.next_date || null;
+
+/* =====================================================================
+   EXPORT (Excel) & REPORT (PDF)
+   ===================================================================== */
+// Excel dates as serial numbers (avoids the library's timezone-seconds drift)
+const xd = s => s ? { __d: (Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)) - Date.UTC(1899, 11, 30)) / 86400000 } : '';
+function xlsxExport(filename, sheets) {
+  if (!window.XLSX) return toast('Excel library did not load — check your internet connection', true);
+  const wb = XLSX.utils.book_new();
+  sheets.forEach(s => {
+    const raw = s.rows.length ? s.rows : [{ 'No data': '' }];
+    const keys = Object.keys(raw[0]), dateCols = new Set();
+    const rows = raw.map(r => { const o = {}; keys.forEach((k, i) => { const v = r[k]; if (v && typeof v === 'object' && '__d' in v) { o[k] = v.__d; dateCols.add(i); } else o[k] = v; }); return o; });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    rows.forEach((r, ri) => dateCols.forEach(ci => { const cell = ws[XLSX.utils.encode_cell({ r: ri + 1, c: ci })]; if (cell && typeof cell.v === 'number') cell.z = 'dd-mm-yyyy'; }));
+    ws['!cols'] = keys.map((k, i) => ({ wch: Math.min(Math.max(k.length, ...rows.map(r => dateCols.has(i) ? 10 : String(r[k] ?? '').length)) + 2, 60) }));
+    XLSX.utils.book_append_sheet(wb, ws, s.name.replace(/[\\/?*[\]:]/g, ' ').slice(0, 31));
+  });
+  XLSX.writeFile(wb, filename);
+}
+const fileDate = () => today();
+const X = {
+  projects: list => list.map(p => { const c = projCalc(p); const r = { 'Project no.': p.project_no, 'Project': p.name, 'Client': clientName(p.client_id), 'Status': p.status,
+    'Scope': (p.scope || []).join(', '), 'Platform': p.platform || '', 'PO no.': p.po_no || '', 'PO date': xd(p.po_date), 'Start': xd(p.start_date), 'Target': xd(p.target_date),
+    'Current stage': c.cur?.stage || (c.progress >= 100 ? 'All done' : ''), 'Progress %': Math.round(c.progress), 'Open punch': c.openPunch.length, 'Docs done': `${c.docsDone}/${c.docs.length}` };
+    if (isAdmin()) Object.assign(r, { 'PO value': c.po, 'Labour': c.labour, 'Other cost': c.exp, 'Total cost': c.cost, 'Margin': c.margin, 'Margin %': c.marginPct === null ? '' : Math.round(c.marginPct * 10) / 10, 'Committed purchases': c.committed, 'Outstanding': c.outstanding });
+    return r; }),
+  tasks: list => list.map(t => ({ 'Project': P(t.project_id)?.project_no || '', 'Task': t.title, 'Stage': t.stage_seq ? stageName(t.stage_seq) : '', 'Due': xd(t.due_date), 'Priority': t.priority, 'Status': t.status, 'Completed': xd(t.completed_at), 'Notes': t.notes || '' })),
+  punch: list => list.map(x => ({ 'Project': P(x.project_id)?.project_no || '', 'No.': 'P-' + String(x.item_no).padStart(2, '0'), 'Raised during': x.source, 'Severity': x.severity, 'Category': x.category || '', 'Raised by': x.raised_by,
+    'Issue': x.description, 'Owner': x.owner_engineer_id ? engName(x.owner_engineer_id) : '', 'Target': xd(x.target_date), 'Status': x.status, 'Closed': xd(x.closed_date), 'Remarks': x.remarks || '' })),
+  docs: list => list.map(d => ({ 'Project': P(d.project_id)?.project_no || '', 'Document': d.name, 'Backup': d.is_backup ? 'Yes' : '', 'Status': d.status, 'Rev': d.rev || '', 'Date': xd(d.rev_date), 'Link / location': d.link || '', 'Remarks': d.remarks || '' })),
+  purchases: list => list.map(x => { const r = { 'Project': P(x.project_id)?.project_no || '', 'Item': x.item, 'Make': x.make || '', 'Part no.': x.part_no || '', 'Qty': num(x.qty), 'Unit': x.unit || '', 'Category': x.category,
+    'Vendor': x.vendor || '', 'PO no.': x.po_no || '', 'PO date': xd(x.po_date), 'Expected': xd(x.expected_date), 'Received qty': num(x.received_qty), 'Received on': xd(x.received_date), 'Status': x.status };
+    if (isAdmin()) Object.assign(r, { 'Order value': num(x.amount), 'Cost booked': purCalc(x).actual, 'Committed': purCalc(x).committed, 'Bill no.': x.bill_no || '' }); return r; }),
+  time: list => list.map(t => { const r = { 'Date': xd(t.log_date), 'Project': P(t.project_id)?.project_no || '', 'Engineer': engName(t.engineer_id), 'Days': num(t.days), 'Where': t.location, 'Stage': t.stage_seq ? stageName(t.stage_seq) : '', 'Work done': t.description || '' };
+    if (isAdmin()) Object.assign(r, { 'Rate/day': num(t.rate_per_day), 'Cost': num(t.cost) }); return r; }),
+  expenses: list => list.map(e => ({ 'Date': xd(e.exp_date), 'Project': P(e.project_id)?.project_no || '', 'Category': e.category, 'Vendor': e.vendor || '', 'Bill no.': e.bill_no || '', 'Amount': num(e.amount), 'Description': e.description || '' })),
+  milestones: list => list.map(m => { const c = msCalc(m); return { 'Project': P(m.project_id)?.project_no || '', 'Milestone': m.label, '%': m.pct ?? '', 'Amount': num(m.amount), 'Expected': xd(m.due_date),
+    'Invoice no.': m.invoice_no || '', 'Invoice date': xd(m.invoice_date), 'Invoice incl. GST': c.gross || '', 'Received': c.received, 'Balance': c.outstanding, 'Status': c.status }; }),
+  offers: list => list.map(o => ({ 'Offer no.': offerNo(o), 'Title': o.title, 'Client': clientName(o.client_id), 'Contact': o.contact_person || '', 'Source': o.source || '', 'Scope': (o.scope || []).join(', '), 'Platform': o.platform || '',
+    'Enquiry': xd(o.enquiry_date), 'Offer date': xd(o.offer_date), 'Value': num(o.value), 'Chance %': o.probability, 'Weighted value': num(o.value) * o.probability / 100,
+    'Expected decision': xd(o.expected_close), 'Stage': o.status, 'Next follow-up': xd(nextFollowup(o.id)), 'Won on': xd(o.won_date), 'Lost on': xd(o.lost_date), 'Lost reason': o.lost_reason || '', 'Project': P(o.project_id)?.project_no || '' })),
+  service: list => list.map(s => { const r = { 'Date': xd(s.call_date), 'Client': clientName(s.client_id), 'Project': P(s.project_id)?.project_no || '', 'Type': s.call_type, 'Issue': s.issue, 'Engineer': s.engineer_id ? engName(s.engineer_id) : '',
+    'Visit': xd(s.visit_date), 'Days': num(s.days), 'Status': s.status, 'Closed': xd(s.closed_date), 'Resolution': s.resolution || '' };
+    if (isAdmin()) Object.assign(r, { 'Cost': num(s.cost), 'Charges': num(s.charges) }); return r; })
+};
+function exportProject(pid) {
+  const p = P(pid), c = projCalc(p), sheets = [
+    { name: 'Summary', rows: X.projects([p]) },
+    { name: 'Stages', rows: c.st.map(s => ({ '#': s.seq, 'Stage': s.stage, 'Planned start': xd(s.planned_start), 'Planned end': xd(s.planned_end), 'Actual start': xd(s.actual_start), 'Actual end': xd(s.actual_end), 'Status': s.status, 'Remarks': s.remarks || '' })) },
+    { name: 'Tasks', rows: X.tasks(S.tasks.filter(t => t.project_id === pid)) },
+    { name: 'Punch list', rows: X.punch(c.punch) },
+    { name: 'Documents', rows: X.docs(c.docs) },
+    { name: 'Purchases', rows: X.purchases(c.pu) },
+    { name: 'Time', rows: X.time(c.tl) }];
+  if (isAdmin()) sheets.push({ name: 'Expenses', rows: X.expenses(c.ex) }, { name: 'Payments', rows: X.milestones(c.ms) });
+  xlsxExport(`${p.project_no.replace(/\//g, '-')}-${fileDate()}.xlsx`, sheets);
+}
+function exportEverything() {
+  xlsxExport(`averon-tracker-${fileDate()}.xlsx`, [
+    { name: 'Projects', rows: X.projects(S.projects) }, { name: 'Tasks', rows: X.tasks(S.tasks) }, { name: 'Punch list', rows: X.punch(S.punch) },
+    { name: 'Documents', rows: X.docs(S.docs) }, { name: 'Purchases', rows: X.purchases(S.purchases) }, { name: 'Time', rows: X.time(S.timeLogs) },
+    { name: 'Expenses', rows: X.expenses(S.expenses) }, { name: 'Payments', rows: X.milestones(S.milestones) },
+    { name: 'Receipts', rows: S.receipts.map(r => ({ 'Date': xd(r.receipt_date), 'Project': P(r.project_id)?.project_no || '', 'Milestone': S.milestones.find(m => m.id === r.milestone_id)?.label || '', 'Amount': num(r.amount), 'Mode': r.mode || '', 'Reference': r.reference || '' })) },
+    { name: 'Offers', rows: X.offers(S.offers) }, { name: 'Service calls', rows: X.service(S.service) },
+    { name: 'AMC', rows: S.amc.map(a => ({ 'Contract': a.contract_no || '', 'Client': clientName(a.client_id), 'Project': P(a.project_id)?.project_no || '', 'Start': xd(a.start_date), 'End': xd(a.end_date), 'Value': num(a.value), 'Visits incl.': a.visits_included, 'Visits used': S.service.filter(s => s.amc_id === a.id).length })) },
+    { name: 'Clients', rows: S.clients.map(c => ({ 'Client': c.name, 'Location': c.location || '', 'Contact': c.contact_person || '', 'Phone': c.phone || '', 'Email': c.email || '', 'GSTIN': c.gstin || '' })) }
+  ]);
+}
+
+function printReport(pid, internal) {
+  const p = P(pid), c = projCalc(p), cl = C(p.client_id);
+  const th = h => `<th>${h}</th>`, row = cells => `<tr>${cells.map(x => `<td>${x}</td>`).join('')}</tr>`;
+  const punchBy = PU_SEV.map(s => `${s}: ${c.openPunch.filter(x => x.severity === s).length}`).join(' · ');
+  const html = `<div class="rep">
+    <div class="rep-head"><div><div class="rep-brand">AVERON AUTOMATION</div><div class="rep-sub">${esc(COMPANY.city)} · ${esc(COMPANY.web)} · ${esc(COMPANY.email)}</div></div>
+      <div style="text-align:right"><div class="rep-title">Project Status Report</div><div class="rep-sub">${fd(today())}${internal ? ' · INTERNAL' : ''}</div></div></div>
+    <table class="rep-kv"><tr><td><b>Project</b></td><td>${esc(p.project_no)} — ${esc(p.name)}</td><td><b>Client</b></td><td>${esc(cl?.name || '—')}${cl?.location ? ', ' + esc(cl.location) : ''}</td></tr>
+      <tr><td><b>PO</b></td><td>${esc(p.po_no || '—')} ${p.po_date ? 'dt. ' + fd(p.po_date) : ''}</td><td><b>Scope / platform</b></td><td>${esc((p.scope || []).join(', ') || '—')} / ${esc(p.platform || '—')}</td></tr>
+      <tr><td><b>Schedule</b></td><td>${fd(p.start_date)} → ${fd(p.target_date)}</td><td><b>Status</b></td><td>${esc(p.status)} · ${Math.round(c.progress)}% complete${c.cur ? ' · now: ' + esc(c.cur.stage) : ''}</td></tr>
+      ${c.warranty ? `<tr><td><b>Warranty</b></td><td colspan="3">Handover ${fd(c.warranty.start)} · warranty till ${fd(c.warranty.end)} (${esc(c.warranty.status)})</td></tr>` : ''}</table>
+    <h3>Stages</h3><table class="rep-t"><thead><tr>${['#','Stage','Planned','Actual','Status'].map(th).join('')}</tr></thead><tbody>
+      ${c.st.map(s => row([s.seq, esc(s.stage), `${fd(s.planned_start)} → ${fd(s.planned_end)}`, `${fd(s.actual_start)} → ${s.actual_start && !s.actual_end ? 'ongoing' : fd(s.actual_end)}`, esc(s.status)])).join('')}</tbody></table>
+    <h3>Punch list <span class="rep-sub">— ${c.openPunch.length} open (${punchBy}), ${c.punch.filter(x => x.status === 'Closed').length} closed</span></h3>
+    ${c.openPunch.length ? `<table class="rep-t"><thead><tr>${['No.','During','Severity','Issue','Owner','Target','Status'].map(th).join('')}</tr></thead><tbody>
+      ${c.openPunch.map(x => row(['P-' + String(x.item_no).padStart(2, '0'), x.source, x.severity, esc(x.description), x.owner_engineer_id ? esc(engName(x.owner_engineer_id)) : '—', fd(x.target_date), x.status])).join('')}</tbody></table>` : '<p>No open punch items.</p>'}
+    <h3>Documents <span class="rep-sub">— ${c.docsDone} of ${c.docs.length} approved / not applicable</span></h3>
+    <table class="rep-t"><thead><tr>${['Document','Rev','Date','Status'].map(th).join('')}</tr></thead><tbody>
+      ${c.docs.map(d => row([esc(d.name) + (d.is_backup ? ' (backup)' : ''), esc(d.rev || '—'), fd(d.rev_date), esc(d.status)])).join('')}</tbody></table>
+    ${internal ? `<h3>Costing (excl. GST)</h3><table class="rep-kv">
+      <tr><td><b>PO value</b></td><td>${inr(c.po)}</td><td><b>Labour</b></td><td>${inr(c.labour)} (${c.days} days)</td></tr>
+      <tr><td><b>Other cost</b></td><td>${inr(c.exp)}</td><td><b>Committed purchases</b></td><td>${inr(c.committed)}</td></tr>
+      <tr><td><b>Margin</b></td><td>${inr(c.margin)} (${pct(c.marginPct)})</td><td><b>Margin after committed</b></td><td>${inr(c.margin - c.committed)}${c.po ? ' (' + pct((c.margin - c.committed) / c.po * 100) + ')' : ''}</td></tr></table>
+      <h3>Payments</h3>${c.ms.length ? `<table class="rep-t"><thead><tr>${['Milestone','Amount','Invoice','Invoice incl. GST','Received','Balance','Status'].map(th).join('')}</tr></thead><tbody>
+      ${c.ms.slice().sort((a, b) => a.seq - b.seq).map(m => { const x = msCalc(m); return row([esc(m.label), inr(m.amount), esc(m.invoice_no || '—'), x.invoiced ? inr(x.gross) : '—', inr(x.received), inr(x.outstanding), x.status]); }).join('')}</tbody></table>` : '<p>No milestones.</p>'}` : ''}
+    <div class="rep-foot">Generated from Averon Project Tracker on ${fd(today())}</div></div>`;
+  $('#printArea').innerHTML = html;
+  document.body.classList.add('printing');
+  const done = () => { document.body.classList.remove('printing'); window.removeEventListener('afterprint', done); };
+  window.addEventListener('afterprint', done);
+  setTimeout(() => window.print(), 50);
+}
 
 /* =====================================================================
    PAGES
@@ -710,117 +1216,164 @@ function pageHead(title, sub, actions = '') {
 }
 const kpi = (l, v, s = '', cls = '') => `<div class="kpi ${cls}"><div class="l">${l}</div><div class="v">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
 const emptyRow = (cols, msg) => `<tr><td colspan="${cols}" class="empty">${msg}</td></tr>`;
+const xBtn = (act, extra = '') => `<button class="btn sm" data-act="${act}" ${extra} title="Download as Excel">⬇ Excel</button>`;
+const sevBadge = s => badge(s, { Critical:'b-red', Major:'b-amber', Minor:'' }[s]);
+const puBadge = s => badge(s, { Open:'b-blue', 'In Progress':'b-orange', Closed:'b-green', Deferred:'' }[s]);
+const docBadge = s => badge(s, { Approved:'b-green', Submitted:'b-blue', Draft:'b-orange', 'Not Applicable':'', 'Not Started':'' }[s]);
+const purBadge = (x, c) => badge(x.status, { Received:'b-green', 'Partly Received':'b-amber', Ordered:'b-blue', Cancelled:'' }[x.status]) + (c.late ? ' ' + badge('Late', 'b-red') : '');
+const ofBadge = s => badge(s, { Enquiry:'', 'Offer Sent':'b-blue', Negotiation:'b-orange', Won:'b-green', Lost:'b-red', Dropped:'' }[s]);
+const wBadge = w => !w ? '' : badge(w.status === 'Active' ? `Warranty till ${fd(w.end)}` : w.status === 'Expiring' ? `Warranty ends ${fd(w.end)}` : 'Warranty expired', { Active:'b-green', Expiring:'b-amber', Expired:'' }[w.status]);
+const pcode = x => 'P-' + String(x.item_no).padStart(2, '0');
 
 /* ---------- Dashboard ---------- */
 function pgDashboard() {
-  const t = today(), in14 = addDays(t, 14);
+  const t = today(), in14 = addDays(t, 14), in30 = addDays(t, 30), A = isAdmin();
   const active = S.projects.filter(p => p.status === 'Active');
   const calcs = active.map(p => ({ p, c: projCalc(p) }));
   const activeIds = new Set(active.map(p => p.id));
   const openSt = S.stages.filter(s => activeIds.has(s.project_id) && s.status !== 'Done' && s.status !== 'Skipped');
   const odStages = openSt.filter(s => s.planned_end && s.planned_end < t);
-  const openTasks = S.tasks.filter(x => x.status !== 'Done' && (P(x.project_id)?.status !== 'Cancelled'));
+  const openTasks = S.tasks.filter(x => x.status !== 'Done' && P(x.project_id) && P(x.project_id).status !== 'Cancelled');
   const odTasks = openTasks.filter(x => x.due_date && x.due_date < t);
+  const openPunch = S.punch.filter(x => (x.status === 'Open' || x.status === 'In Progress') && P(x.project_id));
+  const critPunch = openPunch.filter(x => x.severity === 'Critical');
+  const latePur = S.purchases.filter(x => P(x.project_id) && purCalc(x).late);
   const allMs = S.milestones.map(m => ({ m, c: msCalc(m) }));
   const outstanding = sum(allMs, x => x.c.outstanding);
   const odMs = allMs.filter(x => x.c.overdue && P(x.m.project_id)?.status !== 'Cancelled');
+  const openOffers = S.offers.filter(o => OF_OPEN.includes(o.status));
+  const fuDue = openOffers.map(o => ({ o, d: nextFollowup(o.id) })).filter(x => x.d && x.d <= in14);
+  const warr = S.projects.map(p => ({ p, w: warrantyOf(p) })).filter(x => x.w && x.w.left >= 0 && x.w.end <= in30);
+  const amcEnd = S.amc.filter(a => a.end_date >= t && a.end_date <= in30);
+  const openCalls = S.service.filter(s => s.status !== 'Closed');
   const po = sum(calcs, x => x.c.po), cost = sum(calcs, x => x.c.cost);
-  const doneProj = S.projects.filter(p => p.status === 'Completed').map(p => projCalc(p));
-  const donePo = sum(doneProj, 'po'), doneMargin = sum(doneProj, 'margin');
   const pipe = STAGES.map((s, i) => calcs.filter(x => x.c.cur && x.c.cur.seq === i + 1).length);
-
+  const mk = (d, title, kind, sub, href) => ({ d, html: `<div><b>${esc(title)}</b> <span class="muted">${kind}</span><div class="small muted">${esc(sub)}</div></div>`, href });
+  const pl = id => projLabel(P(id));
   const overdue = [
-    ...odStages.map(s => ({ d: s.planned_end, html: `<div><b>${esc(s.stage)}</b> <span class="muted">stage</span><div class="small muted">${esc(projLabel(P(s.project_id)))}</div></div>`, pid: s.project_id, tab: 'stages' })),
-    ...odTasks.map(x => ({ d: x.due_date, html: `<div><b>${esc(x.title)}</b> <span class="muted">task</span><div class="small muted">${esc(projLabel(P(x.project_id)))}</div></div>`, pid: x.project_id, tab: 'tasks' })),
-    ...odMs.map(x => ({ d: x.m.due_date, html: `<div><b>${esc(x.m.label)}</b> <span class="muted">payment</span><div class="small muted">${esc(projLabel(P(x.m.project_id)))}</div></div>`, pid: x.m.project_id, tab: 'payments' }))
+    ...odStages.map(s => mk(s.planned_end, s.stage, 'stage', pl(s.project_id), `#/project/${s.project_id}/stages`)),
+    ...odTasks.map(x => mk(x.due_date, x.title, 'task', pl(x.project_id), `#/project/${x.project_id}/tasks`)),
+    ...openPunch.filter(x => x.target_date && x.target_date < t).map(x => mk(x.target_date, `${pcode(x)} ${x.description.slice(0, 60)}`, `punch · ${x.severity}`, pl(x.project_id), `#/project/${x.project_id}/punch`)),
+    ...latePur.map(x => mk(x.expected_date, x.item, 'delivery', pl(x.project_id), `#/project/${x.project_id}/purchases`)),
+    ...(A ? odMs.map(x => mk(x.m.due_date, x.m.label, 'payment', pl(x.m.project_id), `#/project/${x.m.project_id}/payments`)) : []),
+    ...(A ? fuDue.filter(x => x.d < t).map(x => mk(x.d, x.o.title, 'follow-up', `${offerNo(x.o)} · ${clientName(x.o.client_id)}`, `#/offer/${x.o.id}`)) : [])
   ].sort((a, b) => a.d.localeCompare(b.d));
   const upcoming = [
-    ...openSt.filter(s => s.planned_end && s.planned_end >= t && s.planned_end <= in14).map(s => ({ d: s.planned_end, html: `<div><b>${esc(s.stage)}</b> <span class="muted">stage ends</span><div class="small muted">${esc(projLabel(P(s.project_id)))}</div></div>`, pid: s.project_id, tab: 'stages' })),
-    ...openTasks.filter(x => x.due_date && x.due_date >= t && x.due_date <= in14).map(x => ({ d: x.due_date, html: `<div><b>${esc(x.title)}</b> <span class="muted">task</span><div class="small muted">${esc(projLabel(P(x.project_id)))}</div></div>`, pid: x.project_id, tab: 'tasks' })),
-    ...allMs.filter(x => x.c.status !== 'Paid' && x.m.due_date && x.m.due_date >= t && x.m.due_date <= in14).map(x => ({ d: x.m.due_date, html: `<div><b>${esc(x.m.label)}</b> <span class="muted">payment expected</span><div class="small muted">${esc(projLabel(P(x.m.project_id)))}</div></div>`, pid: x.m.project_id, tab: 'payments' }))
+    ...openSt.filter(s => s.planned_end && s.planned_end >= t && s.planned_end <= in14).map(s => mk(s.planned_end, s.stage, 'stage ends', pl(s.project_id), `#/project/${s.project_id}/stages`)),
+    ...openTasks.filter(x => x.due_date && x.due_date >= t && x.due_date <= in14).map(x => mk(x.due_date, x.title, 'task', pl(x.project_id), `#/project/${x.project_id}/tasks`)),
+    ...S.purchases.filter(x => P(x.project_id) && x.status !== 'Received' && x.status !== 'Cancelled' && x.expected_date && x.expected_date >= t && x.expected_date <= in14).map(x => mk(x.expected_date, x.item, 'delivery due', pl(x.project_id), `#/project/${x.project_id}/purchases`)),
+    ...(A ? allMs.filter(x => x.c.status !== 'Paid' && x.m.due_date && x.m.due_date >= t && x.m.due_date <= in14).map(x => mk(x.m.due_date, x.m.label, 'payment expected', pl(x.m.project_id), `#/project/${x.m.project_id}/payments`)) : []),
+    ...(A ? fuDue.filter(x => x.d >= t).map(x => mk(x.d, x.o.title, 'follow-up', `${offerNo(x.o)} · ${clientName(x.o.client_id)}`, `#/offer/${x.o.id}`)) : []),
+    ...(A ? warr.map(x => mk(x.w.end, x.p.name, 'warranty ends', `${x.p.project_no} — offer an AMC`, `#/service`)) : []),
+    ...(A ? amcEnd.map(a => mk(a.end_date, a.contract_no || 'AMC', 'AMC ends', clientName(a.client_id), `#/service`)) : [])
   ].sort((a, b) => a.d.localeCompare(b.d));
-  const li = (x, late) => `<div class="list-item click" data-act="go" data-href="#/project/${x.pid}/${x.tab}" style="cursor:pointer">${x.html}<span class="badge ${late ? 'b-red' : 'b-blue'}">${fd(x.d)}</span></div>`;
+  const li = (x, late) => `<div class="list-item" data-act="go" data-href="${x.href}" style="cursor:pointer">${x.html}<span class="badge ${late ? 'b-red' : 'b-blue'}">${fd(x.d)}</span></div>`;
+  const pipeline = sum(openOffers, 'value');
+  const myMonth = S.timeLogs.filter(x => x.log_date >= t.slice(0, 8) + '01' && (A || x.engineer_id === MY_ENG));
+
+  const kpis = A ? `
+    ${kpi('Active projects', active.length, `${S.projects.filter(p => p.status === 'On Hold').length} on hold`)}
+    ${kpi('Active PO value', inr(po), po ? 'cost so far ' + pct(cost / po * 100) : 'excl. GST')}
+    ${kpi('Outstanding', inr(outstanding), `${odMs.length} payment(s) overdue`, odMs.length ? 'warn' : '')}
+    ${kpi('Open pipeline', inr(pipeline), `${openOffers.length} offer(s) · ${fuDue.filter(x => x.d <= t).length} follow-up(s) due`)}
+    ${kpi('Open punch', openPunch.length, `${critPunch.length} critical`, critPunch.length ? 'warn' : '')}
+    ${kpi('Late deliveries', latePur.length, `${openCalls.length} open service call(s)`, latePur.length ? 'warn' : '')}`
+  : `${kpi('My projects', active.length)}${kpi('Open tasks', openTasks.length, `${odTasks.length} overdue`, odTasks.length ? 'warn' : '')}
+    ${kpi('Open punch', openPunch.length, `${critPunch.length} critical`, critPunch.length ? 'warn' : '')}
+    ${kpi('Days logged', sum(myMonth, 'days'), 'this month')}`;
 
   return pageHead('Dashboard', new Date().toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric', timeZone:'Asia/Kolkata' }),
-    `<button class="btn" data-act="newTime">＋ Log time</button><button class="btn primary" data-act="newProject">＋ New project</button>`) +
-  `<div class="kpis">
-    ${kpi('Active projects', active.length, `${S.projects.filter(p => p.status === 'On Hold').length} on hold`)}
-    ${kpi('Active PO value', inr(po), 'excl. GST')}
-    ${kpi('Cost to date', inr(cost), po ? pct(cost / po * 100) + ' of PO' : '')}
-    ${kpi('Outstanding', inr(outstanding), `${odMs.length} payment(s) overdue`, odMs.length ? 'warn' : '')}
-    ${kpi('Overdue items', odStages.length + odTasks.length, `${odStages.length} stages · ${odTasks.length} tasks`, odStages.length + odTasks.length ? 'warn' : 'good')}
-    ${kpi('Completed margin', donePo ? pct(doneMargin / donePo * 100) : '—', donePo ? inr(doneMargin) + ' on ' + doneProj.length + ' project(s)' : 'No completed projects yet')}
-  </div>
+    `<button class="btn" data-act="newTime">＋ Log time</button>${A ? '<button class="btn primary" data-act="newProject">＋ New project</button>' : ''}`) +
+  `<div class="kpis">${kpis}</div>
   <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Active projects by current stage</h3></div><div class="card-b">
     <div class="pipeline">${STAGES.map((s, i) => `<div class="pipe ${pipe[i] ? 'on' : ''}"><div class="n">${pipe[i]}</div><div class="t">${esc(s)}</div></div>`).join('')}</div>
   </div></div>
   <div class="grid g2" style="margin-bottom:14px">
     <div class="card"><div class="card-h"><h3>Overdue</h3>${badge(overdue.length, overdue.length ? 'b-red' : 'b-green')}</div>
-      ${overdue.length ? overdue.slice(0, 12).map(x => li(x, true)).join('') : '<div class="empty">Nothing overdue 👍</div>'}</div>
-    <div class="card"><div class="card-h"><h3>Next 14 days</h3>${badge(upcoming.length, 'b-blue')}</div>
-      ${upcoming.length ? upcoming.slice(0, 12).map(x => li(x, false)).join('') : '<div class="empty">Nothing due in the next two weeks</div>'}</div>
+      ${overdue.length ? overdue.slice(0, 15).map(x => li(x, true)).join('') : '<div class="empty">Nothing overdue 👍</div>'}</div>
+    <div class="card"><div class="card-h"><h3>Coming up</h3>${badge(upcoming.length, 'b-blue')}</div>
+      ${upcoming.length ? upcoming.slice(0, 15).map(x => li(x, false)).join('') : '<div class="empty">Nothing due soon</div>'}</div>
   </div>
   <div class="card"><div class="card-h"><h3>Active projects</h3><a href="#/projects" class="small">All projects →</a></div>
-    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Project</th><th>Client</th><th>Current stage</th><th>Progress</th><th>Target</th><th class="num">PO value</th><th class="num">Cost</th><th class="num">Margin</th></tr></thead><tbody>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Project</th><th>Client</th><th>Current stage</th><th>Progress</th><th>Punch</th><th>Target</th>${A ? '<th class="num">PO value</th><th class="num">Margin</th>' : ''}</tr></thead><tbody>
     ${calcs.length ? calcs.sort((a, b) => b.p.project_no.localeCompare(a.p.project_no)).map(({ p, c }) => `<tr class="click" data-act="go" data-href="#/project/${p.id}/overview">
       <td><b>${esc(p.project_no)}</b><div class="small muted">${esc(p.name)}</div></td><td>${esc(clientName(p.client_id))}</td>
       <td>${c.cur ? esc(c.cur.stage) : '—'} ${c.lateStage ? badge('Late', 'b-red') : ''}</td><td>${progBar(c.progress)}</td>
-      <td class="nowrap">${fd(p.target_date)}</td><td class="num">${inr(c.po)}</td><td class="num">${inr(c.cost)}</td>
-      <td class="num">${badge(pct(c.marginPct), marginCls(c.marginPct))}</td></tr>`).join('') : emptyRow(8, 'No active projects. <a href="#" data-act="newProject">Create the first one</a>.')}
+      <td>${c.openPunch.length ? badge(c.openPunch.length + ' open', c.critical.length ? 'b-red' : 'b-amber') : '<span class="muted">—</span>'}</td>
+      <td class="nowrap">${fd(p.target_date)}</td>${A ? `<td class="num">${inr(c.po)}</td><td class="num">${badge(pct(c.marginPct), marginCls(c.marginPct))}</td>` : ''}</tr>`).join('')
+      : emptyRow(A ? 8 : 6, A ? 'No active projects. <a href="#" data-act="newProject">Create the first one</a>.' : 'No projects assigned to you yet.')}
     </tbody></table></div></div>`;
 }
 
 /* ---------- Projects ---------- */
-function projectRows() {
+function filteredProjects() {
   const q = UI.projSearch.toLowerCase();
-  const rows = S.projects.filter(p => (!UI.projStatus || p.status === UI.projStatus) &&
+  return S.projects.filter(p => (!UI.projStatus || p.status === UI.projStatus) &&
     (!q || [p.project_no, p.name, clientName(p.client_id), p.po_no, p.platform, (p.scope || []).join(' ')].join(' ').toLowerCase().includes(q)))
     .sort((a, b) => b.project_no.localeCompare(a.project_no));
-  if (!rows.length) return emptyRow(9, S.projects.length ? 'No projects match the filter' : 'No projects yet');
+}
+function projectRows() {
+  const rows = filteredProjects(), A = isAdmin(), cols = A ? 9 : 7;
+  if (!rows.length) return emptyRow(cols, S.projects.length ? 'No projects match the filter' : (A ? 'No projects yet' : 'No projects assigned to you yet'));
   return rows.map(p => { const c = projCalc(p); return `<tr class="click" data-act="go" data-href="#/project/${p.id}/overview">
     <td class="nowrap"><b>${esc(p.project_no)}</b></td><td>${esc(p.name)}<div class="small muted">${esc((p.scope || []).join(' · '))}${p.platform ? ' — ' + esc(p.platform) : ''}</div></td>
     <td>${esc(clientName(p.client_id))}</td><td>${pBadge(p.status)}</td><td>${c.cur ? esc(c.cur.stage) : (p.status === 'Completed' ? '—' : 'All done')} ${c.lateStage && p.status === 'Active' ? badge('Late', 'b-red') : ''}</td>
-    <td>${progBar(c.progress)}</td><td class="nowrap">${fd(p.target_date)}</td><td class="num">${inr(c.po)}</td><td class="num">${badge(pct(c.marginPct), marginCls(c.marginPct))}</td></tr>`; }).join('');
+    <td>${progBar(c.progress)}</td><td class="nowrap">${fd(p.target_date)}</td>${A ? `<td class="num">${inr(c.po)}</td><td class="num">${badge(pct(c.marginPct), marginCls(c.marginPct))}</td>` : ''}</tr>`; }).join('');
 }
 function pgProjects() {
-  return pageHead('Projects', `${S.projects.length} total`, `<button class="btn primary" data-act="newProject">＋ New project</button>`) +
+  const A = isAdmin();
+  return pageHead(A ? 'Projects' : 'My projects', `${S.projects.length} total`, `${xBtn('exportProjects')}${A ? '<button class="btn primary" data-act="newProject">＋ New project</button>' : ''}`) +
   `<div class="filters"><input type="search" id="projSearch" placeholder="Search number, name, client, PO, platform…" value="${esc(UI.projSearch)}">
     <select id="projStatus">${opt(P_STATUS, UI.projStatus, 'All statuses')}</select></div>
-  <div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>No.</th><th>Project</th><th>Client</th><th>Status</th><th>Current stage</th><th>Progress</th><th>Target</th><th class="num">PO value</th><th class="num">Margin</th></tr></thead>
+  <div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>No.</th><th>Project</th><th>Client</th><th>Status</th><th>Current stage</th><th>Progress</th><th>Target</th>${A ? '<th class="num">PO value</th><th class="num">Margin</th>' : ''}</tr></thead>
   <tbody id="projBody">${projectRows()}</tbody></table></div></div>`;
 }
 
 /* ---------- Project detail ---------- */
-const TABS = [['overview','Overview'],['stages','Stages'],['tasks','Tasks'],['time','Time'],['expenses','Expenses'],['payments','Payments'],['costing','Costing']];
+const TABS_ADMIN = [['overview','Overview'],['stages','Stages'],['tasks','Tasks'],['punch','Punch list'],['documents','Documents'],['purchases','Purchases'],['time','Time'],['expenses','Expenses'],['payments','Payments'],['costing','Costing']];
+const TABS_ENG = [['overview','Overview'],['stages','Stages'],['tasks','Tasks'],['punch','Punch list'],['documents','Documents'],['purchases','Purchases'],['time','My time']];
 function pgProject(id, tab = 'overview') {
-  const p = P(id);
+  const p = P(id), A = isAdmin();
   if (!p) return pageHead('Project not found') + '<p><a href="#/projects">← Back to projects</a></p>';
+  const tabs = A ? TABS_ADMIN : TABS_ENG;
+  if (!tabs.some(t => t[0] === tab)) tab = 'overview';
   const c = projCalc(p);
-  const body = { overview: tabOverview, stages: tabStages, tasks: tabTasks, time: tabTime, expenses: tabExpenses, payments: tabPayments, costing: tabCosting }[tab] || tabOverview;
-  return `<div class="small" style="margin-bottom:6px"><a href="#/projects">← Projects</a></div>` +
-    pageHead(`${esc(p.project_no)} <span style="font-weight:500">· ${esc(p.name)}</span>`, `${esc(clientName(p.client_id))} &nbsp; ${pBadge(p.status)}`,
-      `<button class="btn" data-act="editProject" data-id="${p.id}">Edit</button>`) +
-    `<div class="kpis">
+  const body = { overview: tabOverview, stages: tabStages, tasks: tabTasks, punch: tabPunch, documents: tabDocs, purchases: tabPurchases, time: tabTime,
+    expenses: tabExpenses, payments: tabPayments, costing: tabCosting }[tab];
+  const kp = A ? `
       ${kpi('PO value', inr(c.po), p.po_no ? 'PO ' + esc(p.po_no) : 'excl. GST')}
       ${kpi('Progress', Math.round(c.progress) + '%', c.cur ? 'Now: ' + esc(c.cur.stage) : 'All stages done')}
-      ${kpi('Cost to date', inr(c.cost), `${inr(c.labour)} labour · ${inr(c.exp)} other`)}
+      ${kpi('Cost to date', inr(c.cost), c.committed ? `+ ${inr(c.committed)} committed` : `${inr(c.labour)} labour · ${inr(c.exp)} other`)}
       ${kpi('Margin', inr(c.margin), pct(c.marginPct), c.marginPct !== null && c.marginPct < 0 ? 'warn' : '')}
       ${kpi('Outstanding', inr(c.outstanding), `${inr(c.received)} received`, c.outstanding > 0 && c.ms.some(m => msCalc(m).overdue) ? 'warn' : '')}
-    </div>
-    <div class="tabs">${TABS.map(([k, l]) => `<a href="#/project/${p.id}/${k}" class="${k === tab ? 'active' : ''}">${l}</a>`).join('')}</div>` + body(p, c);
+      ${kpi('Open punch', c.openPunch.length, `${c.critical.length} critical`, c.critical.length ? 'warn' : '')}`
+    : `${kpi('Progress', Math.round(c.progress) + '%', c.cur ? 'Now: ' + esc(c.cur.stage) : 'All stages done')}
+      ${kpi('Target', fd(p.target_date))}
+      ${kpi('Open tasks', S.tasks.filter(t => t.project_id === p.id && t.status !== 'Done').length)}
+      ${kpi('Open punch', c.openPunch.length, `${c.critical.length} critical`, c.critical.length ? 'warn' : '')}
+      ${kpi('Documents', `${c.docsDone}/${c.docs.length}`, 'approved / N.A.')}`;
+  return `<div class="small" style="margin-bottom:6px"><a href="#/projects">← Projects</a></div>` +
+    pageHead(`${esc(p.project_no)} <span style="font-weight:500">· ${esc(p.name)}</span>`, `${esc(clientName(p.client_id))} &nbsp; ${pBadge(p.status)} ${wBadge(c.warranty)}`,
+      `${A ? `<button class="btn" data-act="report" data-id="${p.id}" data-internal="1">🖨 Internal report</button>` : ''}<button class="btn" data-act="report" data-id="${p.id}">🖨 Client report</button>
+       ${xBtn('exportProject', `data-id="${p.id}"`)}${A ? `<button class="btn" data-act="editProject" data-id="${p.id}">Edit</button>` : ''}`) +
+    `<div class="kpis">${kp}</div>
+    <div class="tabs">${tabs.map(([k, l]) => `<a href="#/project/${p.id}/${k}" class="${k === tab ? 'active' : ''}">${l}${k === 'punch' && c.openPunch.length ? ` <span class="badge ${c.critical.length ? 'b-red' : 'b-amber'}">${c.openPunch.length}</span>` : ''}</a>`).join('')}</div>` + body(p, c);
 }
 function tabOverview(p, c) {
-  const cl = C(p.client_id);
+  const cl = C(p.client_id), A = isAdmin();
   const openTasks = S.tasks.filter(t => t.project_id === p.id && t.status !== 'Done');
+  const team = A ? S.members.filter(m => m.project_id === p.id).map(m => E(m.engineer_id)).filter(Boolean) : null;
+  const offer = A ? S.offers.find(o => o.project_id === p.id) : null;
   return `<div class="grid g2">
     <div class="card"><div class="card-h"><h3>Project details</h3></div><div class="card-b"><dl class="dl">
-      <dt>Project no.</dt><dd><b>${esc(p.project_no)}</b></dd>
+      <dt>Project no.</dt><dd><b>${esc(p.project_no)}</b>${offer ? ` <span class="small muted">from <a href="#/offer/${offer.id}">${esc(offerNo(offer))}</a></span>` : ''}</dd>
       <dt>Client</dt><dd>${esc(cl?.name || '—')}${cl?.location ? ', ' + esc(cl.location) : ''}</dd>
       <dt>PO</dt><dd>${esc(p.po_no || '—')} &nbsp;<span class="muted">${fd(p.po_date)}</span></dd>
-      <dt>PO value</dt><dd>${inr(p.po_value)} <span class="muted small">excl. GST</span></dd>
+      ${A ? `<dt>PO value</dt><dd>${inr(p.po_value)} <span class="muted small">excl. GST</span></dd>` : ''}
       <dt>Scope</dt><dd>${(p.scope || []).map(s => badge(s, 'b-navy')).join(' ') || '—'}</dd>
       <dt>Platform</dt><dd>${esc(p.platform || '—')}</dd>
       <dt>Start → Target</dt><dd>${fd(p.start_date)} → ${fd(p.target_date)}${p.target_date && p.status === 'Active' ? ` <span class="muted small">(${daysBetween(today(), p.target_date) >= 0 ? daysBetween(today(), p.target_date) + ' days left' : Math.abs(daysBetween(today(), p.target_date)) + ' days late'})</span>` : ''}</dd>
+      <dt>Warranty</dt><dd>${c.warranty ? `${fd(c.warranty.start)} → ${fd(c.warranty.end)} ${wBadge(c.warranty)}` : `${num(p.warranty_months ?? 12)} months from handover`}</dd>
       <dt>Remarks</dt><dd style="white-space:pre-wrap">${esc(p.remarks || '—')}</dd>
     </dl></div></div>
     <div class="grid">
@@ -829,8 +1382,10 @@ function tabOverview(p, c) {
         <dt>Phone</dt><dd>${cl?.phone ? `<a href="tel:${esc(cl.phone)}">${esc(cl.phone)}</a>` : '—'}</dd>
         <dt>Email</dt><dd>${cl?.email ? `<a href="mailto:${esc(cl.email)}">${esc(cl.email)}</a>` : '—'}</dd>
         <dt>GSTIN</dt><dd>${esc(cl?.gstin || '—')}</dd></dl></div></div>
+      ${A ? `<div class="card"><div class="card-h"><h3>Team</h3><button class="btn sm" data-act="editTeam" data-id="${p.id}">Manage</button></div>
+        <div class="card-b">${team.length ? team.map(e => badge(e.name, 'b-blue')).join(' ') : '<span class="muted">No engineers assigned. Assigned engineers with a login can see this project.</span>'}</div></div>` : ''}
       <div class="card"><div class="card-h"><h3>Open tasks</h3><button class="btn sm" data-act="newTask" data-pid="${p.id}">＋ Task</button></div>
-        ${openTasks.length ? openTasks.slice(0, 6).map(t => `<div class="list-item"><div>${esc(t.title)} ${t.priority === 'High' ? prBadge('High') : ''}</div><span class="small ${t.due_date && t.due_date < today() ? '' : 'muted'}">${t.due_date ? (t.due_date < today() ? badge(fd(t.due_date), 'b-red') : fd(t.due_date)) : ''}</span></div>`).join('') : '<div class="empty">No open tasks</div>'}
+        ${openTasks.length ? openTasks.slice(0, 6).map(t => `<div class="list-item"><div>${esc(t.title)} ${t.priority === 'High' ? prBadge('High') : ''}</div><span class="small">${t.due_date ? (t.due_date < today() ? badge(fd(t.due_date), 'b-red') : fd(t.due_date)) : ''}</span></div>`).join('') : '<div class="empty">No open tasks</div>'}
       </div>
     </div></div>`;
 }
@@ -856,14 +1411,14 @@ function timelineHTML(st) {
 function tabStages(p, c) {
   const t = today();
   return `<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Timeline</h3>
-      <button class="btn sm" data-act="autoPlan" data-id="${p.id}" title="Spread planned dates between start and target date">Auto-plan dates</button></div>
+      ${isAdmin() ? `<button class="btn sm" data-act="autoPlan" data-id="${p.id}" title="Spread planned dates between start and target date">Auto-plan dates</button>` : ''}</div>
     <div class="card-b">${timelineHTML(c.st)}</div></div>
   <div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>Stage</th><th>Planned</th><th>Actual</th><th>Status</th><th>Remarks</th><th></th></tr></thead><tbody>
   ${c.st.map(s => { const late = s.status !== 'Done' && s.status !== 'Skipped' && s.planned_end && s.planned_end < t;
     const slip = s.actual_end && s.planned_end ? daysBetween(s.planned_end, s.actual_end) : null;
     return `<tr><td>${s.seq}</td><td><b>${esc(s.stage)}</b></td>
     <td class="nowrap">${fd(s.planned_start)} → ${fd(s.planned_end)}</td>
-    <td class="nowrap">${fd(s.actual_start)} → ${s.actual_start && !s.actual_end ? '<i class="muted">ongoing</i>' : fd(s.actual_end)}${slip ? ` <span class="small ${slip > 0 ? '' : 'muted'}" style="color:${slip > 0 ? 'var(--red)' : 'var(--green)'}">${slip > 0 ? '+' : ''}${slip}d</span>` : ''}</td>
+    <td class="nowrap">${fd(s.actual_start)} → ${s.actual_start && !s.actual_end ? '<i class="muted">ongoing</i>' : fd(s.actual_end)}${slip ? ` <span class="small" style="color:${slip > 0 ? 'var(--red)' : 'var(--green)'}">${slip > 0 ? '+' : ''}${slip}d</span>` : ''}</td>
     <td>${sBadge(s.status)} ${late ? badge('Late', 'b-red') : ''}</td><td class="small muted" style="max-width:220px">${esc(s.remarks || '')}</td>
     <td><div class="row-actions">
       ${s.status === 'Not Started' ? `<button class="btn sm" data-act="stageStart" data-id="${s.id}">Start</button>` : ''}
@@ -889,33 +1444,86 @@ function tabTasks(p) {
   const tasks = S.tasks.filter(t => t.project_id === p.id);
   return `<div class="card"><div class="card-h"><h3>Tasks <span class="muted small">${tasks.filter(t => t.status !== 'Done').length} open</span></h3><button class="btn primary sm" data-act="newTask" data-pid="${p.id}">＋ Task</button></div>${taskTable(tasks, false)}</div>`;
 }
+function punchTable(items, showProject) {
+  const t = today();
+  const order = { Critical: 0, Major: 1, Minor: 2 }, open = x => x.status === 'Open' || x.status === 'In Progress';
+  const rows = items.slice().sort((a, b) => (open(b) - open(a)) || order[a.severity] - order[b.severity] || a.item_no - b.item_no);
+  return `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>No.</th>${showProject ? '<th>Project</th>' : ''}<th>Issue</th><th>During</th><th>Severity</th><th>Owner</th><th>Target</th><th>Status</th><th></th></tr></thead><tbody>
+  ${rows.length ? rows.map(x => `<tr class="${x.status === 'Closed' ? 'done-row' : ''}"><td class="nowrap"><b>${pcode(x)}</b></td>
+    ${showProject ? `<td><a href="#/project/${x.project_id}/punch">${esc(P(x.project_id)?.project_no || '')}</a></td>` : ''}
+    <td><span class="t-title">${esc(x.description)}</span><div class="small muted">${esc([x.category, x.raised_by === 'Client' ? 'raised by client' : 'internal'].filter(Boolean).join(' · '))}${x.remarks ? ' — ' + esc(x.remarks) : ''}</div></td>
+    <td>${esc(x.source)}</td><td>${sevBadge(x.severity)}</td><td>${x.owner_engineer_id ? esc(engName(x.owner_engineer_id)) : '<span class="muted">—</span>'}</td>
+    <td class="nowrap">${x.target_date ? (open(x) && x.target_date < t ? badge(fd(x.target_date), 'b-red') : fd(x.target_date)) : '—'}</td>
+    <td>${puBadge(x.status)}${x.closed_date ? `<div class="small muted">${fd(x.closed_date)}</div>` : ''}</td>
+    <td><div class="row-actions">${open(x) ? `<button class="btn sm" data-act="closePunch" data-id="${x.id}">✓ Close</button>` : ''}<button class="icon-btn" data-act="editPunch" data-id="${x.id}">✎</button></div></td></tr>`).join('')
+    : emptyRow(showProject ? 9 : 8, 'No punch items')}
+  </tbody></table></div>`;
+}
+function tabPunch(p, c) {
+  const f = UI.punchFilter;
+  const items = c.punch.filter(x => f === 'all' || (f === 'open' ? (x.status === 'Open' || x.status === 'In Progress') : x.status === 'Closed' || x.status === 'Deferred'));
+  return `<div class="kpis">${kpi('Open', c.openPunch.length, '', c.openPunch.length ? '' : 'good')}${kpi('Critical open', c.critical.length, 'blocks SAT & handover', c.critical.length ? 'warn' : 'good')}
+    ${kpi('Major open', c.openPunch.filter(x => x.severity === 'Major').length)}${kpi('Closed', c.punch.filter(x => x.status === 'Closed').length)}</div>
+  <div class="card"><div class="card-h"><h3>Punch list</h3><div class="actions">
+    <select id="punchFilter" class="btn sm">${opt([{ v:'open', l:'Open' }, { v:'closed', l:'Closed / deferred' }, { v:'all', l:'All' }], f)}</select>
+    <button class="btn primary sm" data-act="newPunch" data-pid="${p.id}">＋ Punch item</button></div></div>${punchTable(items, false)}</div>`;
+}
+function tabDocs(p, c) {
+  const A = isAdmin(), missing = S.docTypes.filter(d => d.active && !c.docs.some(x => x.doc_type_id === d.id)).length;
+  return `${c.backupsMissing.length ? `<div class="alert warn">Program backup not recorded yet: <b>${c.backupsMissing.map(d => esc(d.name)).join(', ')}</b>. Handover cannot be marked done until the backup date and location are filled.</div>` : ''}
+  <div class="card"><div class="card-h"><h3>Documents <span class="muted small">${c.docsDone} of ${c.docs.length} approved / not applicable</span></h3><div class="actions">
+    ${A && missing ? `<button class="btn sm" data-act="addMissingDocs" data-id="${p.id}">＋ Add ${missing} missing standard doc(s)</button>` : ''}
+    <button class="btn primary sm" data-act="newDoc" data-pid="${p.id}">＋ Document</button></div></div>
+  <div class="card-b" style="padding-bottom:0">${progBar(c.docs.length ? c.docsDone / c.docs.length * 100 : 0)}</div>
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Document</th><th>Rev</th><th>Date</th><th>Status</th><th>Link / location</th><th></th></tr></thead><tbody>
+  ${c.docs.length ? c.docs.map(d => `<tr><td><b>${esc(d.name)}</b>${d.is_backup ? ' ' + badge('Backup', backupMissing(d) ? 'b-red' : 'b-navy') : ''}${d.remarks ? `<div class="small muted">${esc(d.remarks)}</div>` : ''}</td>
+    <td>${esc(d.rev || '—')}</td><td class="nowrap">${fd(d.rev_date)}</td><td>${docBadge(d.status)}</td>
+    <td class="small" style="max-width:260px;word-break:break-all">${d.link ? (/^https?:\/\//i.test(d.link) ? `<a href="${esc(d.link)}" target="_blank" rel="noopener">Open ↗</a>` : esc(d.link)) : '<span class="muted">—</span>'}</td>
+    <td><div class="row-actions"><button class="icon-btn" data-act="editDoc" data-id="${d.id}">✎</button></div></td></tr>`).join('') : emptyRow(6, 'No documents')}
+  </tbody></table></div></div>`;
+}
+function tabPurchases(p, c) {
+  const A = isAdmin();
+  const rows = c.pu.map((x, i) => ({ x, k: c.pc[i] })).sort((a, b) => (a.x.status === 'Received') - (b.x.status === 'Received') || (a.x.expected_date || '9999').localeCompare(b.x.expected_date || '9999'));
+  const pending = c.pu.filter(x => x.status === 'Ordered' || x.status === 'Partly Received').length;
+  return `<div class="kpis">${kpi('Items', c.pu.length, `${pending} pending delivery`)}${kpi('Late deliveries', c.latePur.length, '', c.latePur.length ? 'warn' : 'good')}
+    ${A ? kpi('Received (cost booked)', inr(c.purActual)) + kpi('Committed (not received)', inr(c.committed)) : ''}</div>
+  <div class="card"><div class="card-h"><h3>Purchases</h3>${A ? `<button class="btn primary sm" data-act="newPurchase" data-pid="${p.id}">＋ Item</button>` : ''}</div>
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Item</th><th>Vendor / PO</th><th class="num">Qty</th><th>Expected</th><th>Received</th><th>Status</th>${A ? '<th class="num">Value</th><th></th>' : ''}</tr></thead><tbody>
+  ${rows.length ? rows.map(({ x, k }) => `<tr><td><b>${esc(x.item)}</b><div class="small muted">${esc([x.make, x.part_no].filter(Boolean).join(' · '))}</div></td>
+    <td>${esc(x.vendor || '—')}<div class="small muted">${esc(x.po_no || '')} ${x.po_date ? fd(x.po_date) : ''}</div></td>
+    <td class="num">${num(x.received_qty)} / ${num(x.qty)} ${esc(x.unit || '')}</td><td class="nowrap">${fd(x.expected_date)}</td><td class="nowrap">${fd(x.received_date)}</td>
+    <td>${purBadge(x, k)}</td>${A ? `<td class="num">${inr(x.amount)}</td><td><div class="row-actions">${x.status === 'Ordered' || x.status === 'Partly Received' ? `<button class="btn sm" data-act="receivePurchase" data-id="${x.id}">Receive</button>` : ''}<button class="icon-btn" data-act="editPurchase" data-id="${x.id}">✎</button></div></td>` : ''}</tr>`).join('')
+    : emptyRow(A ? 8 : 6, 'No purchase items')}
+  </tbody>${A && rows.length ? `<tfoot><tr><td colspan="6">Total order value</td><td class="num">${inr(sum(c.pu.filter(x => x.status !== 'Cancelled'), 'amount'))}</td><td></td></tr></tfoot>` : ''}</table></div></div>`;
+}
 function tabTime(p, c) {
+  const A = isAdmin();
   const rows = c.tl.slice().sort((a, b) => b.log_date.localeCompare(a.log_date));
-  const byEng = {}; c.tl.forEach(t => { const k = E(t.engineer_id)?.name || '—'; byEng[k] = byEng[k] || { d: 0, c: 0 }; byEng[k].d += num(t.days); byEng[k].c += num(t.cost); });
+  const byEng = {}; c.tl.forEach(t => { const k = engName(t.engineer_id); byEng[k] = byEng[k] || { d: 0, c: 0 }; byEng[k].d += num(t.days); byEng[k].c += num(t.cost); });
   const site = sum(c.tl.filter(t => t.location === 'Site'), 'days');
-  return `<div class="kpis">${kpi('Total days', c.days, `${site} on site · ${c.days - site} office`)}${kpi('Labour cost', inr(c.labour))}
-    ${Object.entries(byEng).map(([n, v]) => kpi(esc(n), v.d + ' d', inr(v.c))).join('')}</div>
-  <div class="card"><div class="card-h"><h3>Time log</h3><button class="btn primary sm" data-act="newTime" data-pid="${p.id}">＋ Log time</button></div>
-  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Engineer</th><th class="num">Days</th><th>Where</th><th>Stage</th><th>Work done</th><th class="num">Rate/day</th><th class="num">Cost</th><th></th></tr></thead><tbody>
-  ${rows.length ? rows.map(t => `<tr><td class="nowrap">${fd(t.log_date)}</td><td>${esc(E(t.engineer_id)?.name || '—')}</td><td class="num">${num(t.days)}</td>
+  return `<div class="kpis">${kpi(A ? 'Total days' : 'My days', c.days, `${site} on site · ${c.days - site} office`)}${A ? kpi('Labour cost', inr(c.labour)) + Object.entries(byEng).map(([n, v]) => kpi(esc(n), v.d + ' d', inr(v.c))).join('') : ''}</div>
+  <div class="card"><div class="card-h"><h3>${A ? 'Time log' : 'My time on this project'}</h3><button class="btn primary sm" data-act="newTime" data-pid="${p.id}">＋ Log time</button></div>
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Date</th>${A ? '<th>Engineer</th>' : ''}<th class="num">Days</th><th>Where</th><th>Stage</th><th>Work done</th>${A ? '<th class="num">Rate/day</th><th class="num">Cost</th>' : ''}<th></th></tr></thead><tbody>
+  ${rows.length ? rows.map(t => `<tr><td class="nowrap">${fd(t.log_date)}</td>${A ? `<td>${esc(engName(t.engineer_id))}</td>` : ''}<td class="num">${num(t.days)}</td>
     <td>${t.location === 'Site' ? badge('Site', 'b-orange') : badge('Office')}</td><td class="small">${esc(stageName(t.stage_seq))}</td><td class="small">${esc(t.description || '')}</td>
-    <td class="num">${inr(t.rate_per_day)}</td><td class="num">${inr(t.cost)}</td><td><div class="row-actions"><button class="icon-btn" data-act="editTime" data-id="${t.id}">✎</button></div></td></tr>`).join('') : emptyRow(9, 'No time logged yet')}
-  </tbody>${rows.length ? `<tfoot><tr><td colspan="2">Total</td><td class="num">${c.days}</td><td colspan="4"></td><td class="num">${inr(c.labour)}</td><td></td></tr></tfoot>` : ''}</table></div></div>`;
+    ${A ? `<td class="num">${inr(t.rate_per_day)}</td><td class="num">${inr(t.cost)}</td>` : ''}<td><div class="row-actions"><button class="icon-btn" data-act="editTime" data-id="${t.id}">✎</button></div></td></tr>`).join('') : emptyRow(A ? 9 : 6, 'No time logged yet')}
+  </tbody>${rows.length && A ? `<tfoot><tr><td colspan="2">Total</td><td class="num">${c.days}</td><td colspan="4"></td><td class="num">${inr(c.labour)}</td><td></td></tr></tfoot>` : ''}</table></div></div>`;
 }
 function tabExpenses(p, c) {
   const rows = c.ex.slice().sort((a, b) => b.exp_date.localeCompare(a.exp_date));
   const byCat = EXP_CATS.map(k => [k, sum(c.ex.filter(e => e.category === k), 'amount')]).filter(x => x[1] > 0);
   return `${byCat.length ? `<div class="kpis">${byCat.map(([k, v]) => kpi(esc(k), inr(v))).join('')}</div>` : ''}
+  ${c.purActual ? `<div class="alert ok">Plus <b>${inr(c.purActual)}</b> of received purchases (see Purchases tab) — included in Costing.</div>` : ''}
   <div class="card"><div class="card-h"><h3>Expenses <span class="muted small">excl. GST</span></h3><button class="btn primary sm" data-act="newExpense" data-pid="${p.id}">＋ Expense</button></div>
   <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Category</th><th>Vendor</th><th>Bill no.</th><th>Description</th><th class="num">Amount</th><th></th></tr></thead><tbody>
   ${rows.length ? rows.map(e => `<tr><td class="nowrap">${fd(e.exp_date)}</td><td>${esc(e.category)}</td><td>${esc(e.vendor || '')}</td><td>${esc(e.bill_no || '')}</td>
     <td class="small">${esc(e.description || '')}</td><td class="num">${inr(e.amount, 2)}</td><td><div class="row-actions"><button class="icon-btn" data-act="editExpense" data-id="${e.id}">✎</button></div></td></tr>`).join('') : emptyRow(7, 'No expenses yet')}
-  </tbody>${rows.length ? `<tfoot><tr><td colspan="5">Total</td><td class="num">${inr(c.exp, 2)}</td><td></td></tr></tfoot>` : ''}</table></div></div>`;
+  </tbody>${rows.length ? `<tfoot><tr><td colspan="5">Total</td><td class="num">${inr(sum(c.ex, 'amount'), 2)}</td><td></td></tr></tfoot>` : ''}</table></div></div>`;
 }
 function tabPayments(p, c) {
   const ms = c.ms.slice().sort((a, b) => a.seq - b.seq);
   const rc = S.receipts.filter(r => r.project_id === p.id).sort((a, b) => b.receipt_date.localeCompare(a.receipt_date));
-  const diff = Math.round((c.msPct - 100) * 100) / 100;
   const amtDiff = Math.round((c.msAmt - c.po) * 100) / 100;
   let alert = '';
   if (ms.length && c.po) alert = Math.abs(amtDiff) < 1
@@ -941,12 +1549,12 @@ function tabPayments(p, c) {
 }
 function tabCosting(p, c) {
   const bud = {}; S.budget.filter(b => b.project_id === p.id).forEach(b => bud[b.category] = num(b.amount));
-  const act = { Labour: c.labour }; EXP_CATS.forEach(k => act[k] = sum(c.ex.filter(e => e.category === k), 'amount'));
+  const act = { Labour: c.labour }; EXP_CATS.forEach(k => act[k] = catActual(c, k));
   const totB = sum(BUDGET_CATS, k => bud[k] || 0), totA = c.cost;
-  const hasBud = totB > 0;
-  const budMargin = c.po - totB;
-  return `<div class="kpis">${kpi('PO value', inr(c.po), 'excl. GST')}${kpi('Labour', inr(c.labour), c.days + ' engineer-days')}${kpi('Other costs', inr(c.exp))}
+  const hasBud = totB > 0, budMargin = c.po - totB;
+  return `<div class="kpis">${kpi('PO value', inr(c.po), 'excl. GST')}${kpi('Labour', inr(c.labour), c.days + ' engineer-days')}${kpi('Other costs', inr(c.exp), c.purActual ? `incl. ${inr(c.purActual)} purchases` : '')}
     ${kpi('Margin', inr(c.margin), pct(c.marginPct) + ' of PO', c.margin < 0 ? 'warn' : 'good')}
+    ${c.committed ? kpi('After committed', inr(c.margin - c.committed), `${inr(c.committed)} on order`, c.margin - c.committed < 0 ? 'warn' : '') : ''}
     ${hasBud ? kpi('Budgeted margin', inr(budMargin), c.po ? pct(budMargin / c.po * 100) : '') : ''}</div>
   <div class="card"><div class="card-h"><h3>Budget vs actual</h3><button class="btn sm" data-act="editBudget" data-id="${p.id}">${hasBud ? 'Edit budget' : 'Set budget'}</button></div>
   <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Category</th><th class="num">Budget</th><th class="num">Actual</th><th class="num">Variance</th><th style="width:28%">Used</th></tr></thead><tbody>
@@ -959,43 +1567,53 @@ function tabCosting(p, c) {
 }
 
 /* ---------- Tasks (all) ---------- */
-function pgTasks() {
+function filteredTasks() {
   let tasks = S.tasks.filter(t => P(t.project_id));
   if (UI.taskProject) tasks = tasks.filter(t => t.project_id === UI.taskProject);
   if (UI.taskStatus === 'open') tasks = tasks.filter(t => t.status !== 'Done');
   else if (UI.taskStatus === 'overdue') tasks = tasks.filter(t => t.status !== 'Done' && t.due_date && t.due_date < today());
   else if (UI.taskStatus === 'done') tasks = tasks.filter(t => t.status === 'Done');
-  return pageHead('Tasks', `${S.tasks.filter(t => t.status !== 'Done').length} open across all projects`, `<button class="btn primary" data-act="newTask">＋ Task</button>`) +
+  return tasks;
+}
+function pgTasks() {
+  return pageHead('Tasks', `${S.tasks.filter(t => t.status !== 'Done').length} open across all projects`, `${xBtn('exportTasks')}<button class="btn primary" data-act="newTask">＋ Task</button>`) +
   `<div class="filters"><select id="taskProject">${opt(projOpts(false), UI.taskProject, 'All projects')}</select>
     <select id="taskStatus">${opt([{ v:'open', l:'Open' }, { v:'overdue', l:'Overdue' }, { v:'done', l:'Done' }, { v:'all', l:'All' }], UI.taskStatus)}</select></div>
-  <div class="card">${taskTable(tasks, true)}</div>`;
+  <div class="card">${taskTable(filteredTasks(), true)}</div>
+  ${S.punch.some(x => x.status === 'Open' || x.status === 'In Progress') ? `<div class="card" style="margin-top:14px"><div class="card-h"><h3>Open punch items — all projects</h3></div>
+    ${punchTable(S.punch.filter(x => (x.status === 'Open' || x.status === 'In Progress') && P(x.project_id) && (!UI.taskProject || x.project_id === UI.taskProject)), true)}</div>` : ''}`;
 }
 
 /* ---------- Quick entry ---------- */
 let QE = { time: null, exp: null };
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 function pgEntry() {
+  const A = isAdmin();
   QE.time = timeFields(true).map(f => f.k === 'description' ? { ...f, type:'text' } : f);
   QE.exp = expenseFields(true).map(f => f.k === 'description' ? { ...f, type:'text' } : f);
-  const last = JSON.parse(sessionStorageGet('qe_last') || '{}');
-  const recent = S.timeLogs.slice().sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')).slice(0, 5);
+  let last = {}; try { last = JSON.parse(lsGet('qe_last') || '{}'); } catch (e) {}
+  if (last.project_id && !P(last.project_id)) last.project_id = null;
+  const mine = S.timeLogs.filter(t => A || t.engineer_id === MY_ENG);
+  const recent = mine.slice().sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')).slice(0, 6);
   const firstEng = S.engineers.find(e => e.active);
   const tv = { project_id: last.project_id, engineer_id: last.engineer_id || firstEng?.id, log_date: today(), days: 1, location: last.location || 'Site' };
-  tv.rate_per_day = E(tv.engineer_id)?.rate_per_day;
-  return pageHead('Quick entry', 'Log time and expenses on the go') +
-  `<div class="grid g2">
-    <div class="card"><div class="card-h"><h3>Log time</h3></div><form class="card-b" id="qeTime" novalidate>
-      ${S.engineers.length ? formFieldsHTML(QE.time, tv) + '<div style="margin-top:14px"><button class="btn primary" style="width:100%;justify-content:center">Save time</button></div>' : '<div class="empty">Add an engineer in <a href="#/masters">Masters</a> first.</div>'}
-    </form></div>
-    <div class="card"><div class="card-h"><h3>Add expense</h3></div><form class="card-b" id="qeExp" novalidate>
+  if (A) tv.rate_per_day = E(tv.engineer_id)?.rate_per_day;
+  const canTime = A ? S.engineers.length > 0 : !!MY_ENG;
+  const timeCard = `<div class="card"><div class="card-h"><h3>Log time</h3></div><form class="card-b" id="qeTime" novalidate>
+      ${!S.projects.length ? `<div class="empty">${A ? 'Create a project first.' : 'No projects assigned to you yet.'}</div>`
+        : canTime ? formFieldsHTML(QE.time, tv) + '<div style="margin-top:14px"><button class="btn primary" style="width:100%;justify-content:center">Save time</button></div>'
+        : `<div class="empty">${A ? 'Add an engineer in <a href="#/masters">Masters</a> first.' : 'Your login is not linked to an engineer yet — ask the admin.'}</div>`}
+    </form></div>`;
+  return pageHead(A ? 'Quick entry' : 'Log time', A ? 'Log time and expenses on the go' : 'Record your office and site days') +
+  `<div class="grid ${A ? 'g2' : ''}">${timeCard}
+    ${A ? `<div class="card"><div class="card-h"><h3>Add expense</h3></div><form class="card-b" id="qeExp" novalidate>
       ${formFieldsHTML(QE.exp, { project_id: last.project_id, exp_date: today() })}
-      <div style="margin-top:14px"><button class="btn primary" style="width:100%;justify-content:center">Save expense</button></div>
-    </form></div>
+      <div style="margin-top:14px"><button class="btn primary" style="width:100%;justify-content:center">Save expense</button></div></form></div>` : ''}
   </div>
   <div class="card" style="margin-top:14px"><div class="card-h"><h3>Recent time entries</h3></div>
-    ${recent.length ? recent.map(t => `<div class="list-item"><div><b>${esc(E(t.engineer_id)?.name || '')}</b> · ${num(t.days)} d ${t.location === 'Site' ? badge('Site', 'b-orange') : ''}<div class="small muted">${esc(projLabel(P(t.project_id)))} — ${esc(t.description || '')}</div></div><span class="small muted">${fd(t.log_date)}</span></div>`).join('') : '<div class="empty">Nothing logged yet</div>'}</div>`;
+    ${recent.length ? recent.map(t => `<div class="list-item"><div><b>${esc(engName(t.engineer_id))}</b> · ${num(t.days)} d ${t.location === 'Site' ? badge('Site', 'b-orange') : ''}<div class="small muted">${esc(projLabel(P(t.project_id)))} — ${esc(t.description || '')}</div></div><span class="small muted">${fd(t.log_date)}</span></div>`).join('') : '<div class="empty">Nothing logged yet</div>'}</div>`;
 }
-function sessionStorageGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
-function sessionStorageSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 function bindEntry() {
   const tf = $('#qeTime'), ef = $('#qeExp');
   const submitIn = async (form, fields, fn) => {
@@ -1006,23 +1624,136 @@ function bindEntry() {
   };
   if (tf && tf.querySelector('button')) {
     tf.addEventListener('input', e => { if (e.target.name === 'engineer_id') timeOnChange('engineer_id', collectForm(tf, QE.time).vals, (k, v) => setField(tf, k, v)); });
-    tf.onsubmit = e => { e.preventDefault(); submitIn(tf, QE.time, async v => { validateTime(v); await dbInsert('timeLogs', v);
-      sessionStorageSet('qe_last', JSON.stringify({ project_id: v.project_id, engineer_id: v.engineer_id, location: v.location })); toast(`Logged ${v.days} day(s) on ${P(v.project_id)?.project_no}`); }); };
+    tf.onsubmit = e => { e.preventDefault(); submitIn(tf, QE.time, async v => { await saveTime(v);
+      lsSet('qe_last', JSON.stringify({ project_id: v.project_id, engineer_id: v.engineer_id, location: v.location })); toast(`Logged ${v.days} day(s) on ${P(v.project_id)?.project_no}`); }); };
   }
-  ef.onsubmit = e => { e.preventDefault(); submitIn(ef, QE.exp, async v => { await dbInsert('expenses', v);
-    const l = JSON.parse(sessionStorageGet('qe_last') || '{}'); l.project_id = v.project_id; sessionStorageSet('qe_last', JSON.stringify(l)); toast(`Expense ${inr(v.amount)} saved`); }); };
+  if (ef) ef.onsubmit = e => { e.preventDefault(); submitIn(ef, QE.exp, async v => { await dbInsert('expenses', v);
+    let l = {}; try { l = JSON.parse(lsGet('qe_last') || '{}'); } catch (x) {} l.project_id = v.project_id; lsSet('qe_last', JSON.stringify(l)); toast(`Expense ${inr(v.amount)} saved`); }); };
+}
+
+/* ---------- CRM ---------- */
+function filteredOffers() {
+  const q = UI.crmSearch.toLowerCase(), st = UI.crmStatus;
+  return S.offers.filter(o => (st === 'all' || (st === 'open' ? OF_OPEN.includes(o.status) : o.status === st)) &&
+    (!q || [offerNo(o), o.title, clientName(o.client_id), o.contact_person, o.platform].join(' ').toLowerCase().includes(q)))
+    .sort((a, b) => b.offer_no.localeCompare(a.offer_no));
+}
+function offerRows() {
+  const t = today(), rows = filteredOffers();
+  if (!rows.length) return emptyRow(8, S.offers.length ? 'No offers match the filter' : 'No enquiries yet. Add the first one.');
+  return rows.map(o => { const nf = nextFollowup(o.id); return `<tr class="click" data-act="go" data-href="#/offer/${o.id}">
+    <td class="nowrap"><b>${esc(offerNo(o))}</b><div class="small muted">${fd(o.offer_date || o.enquiry_date)}</div></td>
+    <td>${esc(o.title)}<div class="small muted">${esc((o.scope || []).join(' · '))}${o.platform ? ' — ' + esc(o.platform) : ''}</div></td>
+    <td>${esc(clientName(o.client_id))}</td><td class="num">${inr(o.value)}</td><td class="num">${o.probability}%</td><td>${ofBadge(o.status)}</td>
+    <td class="nowrap">${OF_OPEN.includes(o.status) ? (nf ? (nf <= t ? badge(fd(nf), 'b-red') : fd(nf)) : '<span class="muted">—</span>') : (o.project_id ? `<a href="#/project/${o.project_id}/overview">${esc(P(o.project_id)?.project_no || 'project')}</a>` : '')}</td>
+    <td class="nowrap">${fd(o.expected_close)}</td></tr>`; }).join('');
+}
+function pgCrm() {
+  const fy = fyOf(today()), open = S.offers.filter(o => OF_OPEN.includes(o.status));
+  const fyOffers = S.offers.filter(o => o.fy === fy);
+  const won = fyOffers.filter(o => o.status === 'Won'), lost = fyOffers.filter(o => o.status === 'Lost');
+  const rate = won.length + lost.length ? won.length / (won.length + lost.length) * 100 : null;
+  const due = open.filter(o => { const d = nextFollowup(o.id); return d && d <= today(); }).length;
+  return pageHead('Sales / CRM', `Enquiries, offers and follow-ups · FY ${fy}`, `${xBtn('exportOffers')}<button class="btn primary" data-act="newOffer">＋ Enquiry / offer</button>`) +
+  `<div class="kpis">${kpi('Open pipeline', inr(sum(open, 'value')), `${open.length} offer(s)`)}${kpi('Weighted pipeline', inr(sum(open, o => num(o.value) * o.probability / 100)), 'value × chance')}
+    ${kpi('Won this FY', inr(sum(won, 'value')), `${won.length} order(s)`, won.length ? 'good' : '')}${kpi('Win rate', pct(rate), `${won.length} won · ${lost.length} lost this FY`)}
+    ${kpi('Follow-ups due', due, 'today or overdue', due ? 'warn' : 'good')}</div>
+  <div class="filters"><input type="search" id="crmSearch" placeholder="Search offer no., title, client…" value="${esc(UI.crmSearch)}">
+    <select id="crmStatus">${opt([{ v:'open', l:'Open (enquiry → negotiation)' }, ...OF_STATUS.map(s => ({ v:s, l:s })), { v:'all', l:'All' }], UI.crmStatus)}</select></div>
+  <div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Offer</th><th>Title</th><th>Client</th><th class="num">Value</th><th class="num">Chance</th><th>Stage</th><th>Next follow-up</th><th>Decision by</th></tr></thead>
+  <tbody id="crmBody">${offerRows()}</tbody></table></div></div>`;
+}
+function pgOffer(id) {
+  const o = OFR(id); if (!o) return pageHead('Offer not found') + '<p><a href="#/crm">← Back to CRM</a></p>';
+  const cl = C(o.client_id), isOpen = OF_OPEN.includes(o.status), t = today();
+  const revs = S.revisions.filter(r => r.offer_id === o.id).sort((a, b) => b.rev - a.rev);
+  const fus = S.followups.filter(f => f.offer_id === o.id).sort((a, b) => b.fu_date.localeCompare(a.fu_date) || (b.created_at || '').localeCompare(a.created_at || ''));
+  return `<div class="small" style="margin-bottom:6px"><a href="#/crm">← Sales / CRM</a></div>` +
+  pageHead(`${esc(offerNo(o))} <span style="font-weight:500">· ${esc(o.title)}</span>`, `${esc(cl?.name || 'No client')} &nbsp; ${ofBadge(o.status)}`,
+    `${isOpen ? `<button class="btn" data-act="newFollowup" data-id="${o.id}">＋ Follow-up</button><button class="btn" data-act="reviseOffer" data-id="${o.id}">Revise (R${o.rev + 1})</button>
+      <button class="btn" data-act="lostOffer" data-id="${o.id}">Lost / dropped</button><button class="btn primary" data-act="convertOffer" data-id="${o.id}">🏆 Won → create project</button>` : ''}
+     ${o.project_id ? `<a class="btn primary" href="#/project/${o.project_id}/overview">Open project ${esc(P(o.project_id)?.project_no || '')}</a>` : ''}
+     <button class="btn" data-act="editOffer" data-id="${o.id}">Edit</button>`) +
+  `<div class="kpis">${kpi('Value', inr(o.value), 'excl. GST · R' + o.rev)}${kpi('Chance', o.probability + '%', 'weighted ' + inr(num(o.value) * o.probability / 100))}
+    ${kpi('Next follow-up', fd(nextFollowup(o.id)), '', nextFollowup(o.id) && nextFollowup(o.id) <= t ? 'warn' : '')}${kpi('Decision by', fd(o.expected_close))}</div>
+  <div class="grid g2">
+    <div class="card"><div class="card-h"><h3>Details</h3></div><div class="card-b"><dl class="dl">
+      <dt>Client</dt><dd>${esc(cl?.name || '—')}${cl?.location ? ', ' + esc(cl.location) : ''}</dd>
+      <dt>Contact</dt><dd>${esc(o.contact_person || cl?.contact_person || '—')}${cl?.phone ? ` · <a href="tel:${esc(cl.phone)}">${esc(cl.phone)}</a>` : ''}</dd>
+      <dt>Source</dt><dd>${esc(o.source || '—')}</dd>
+      <dt>Scope</dt><dd>${(o.scope || []).map(s => badge(s, 'b-navy')).join(' ') || '—'}</dd>
+      <dt>Platform</dt><dd>${esc(o.platform || '—')}</dd>
+      <dt>Enquiry → Offer</dt><dd>${fd(o.enquiry_date)} → ${fd(o.offer_date)}</dd>
+      ${o.status === 'Won' ? `<dt>Won on</dt><dd>${fd(o.won_date)}</dd>` : ''}
+      ${o.status === 'Lost' || o.status === 'Dropped' ? `<dt>${o.status} on</dt><dd>${fd(o.lost_date)} — ${esc(o.lost_reason || 'no reason recorded')}</dd>` : ''}
+      <dt>Remarks</dt><dd style="white-space:pre-wrap">${esc(o.remarks || '—')}</dd></dl></div></div>
+    <div class="card"><div class="card-h"><h3>Revisions</h3></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Rev</th><th>Date</th><th class="num">Value</th><th>Notes</th></tr></thead><tbody>
+      ${revs.length ? revs.map(r => `<tr><td><b>R${r.rev}</b></td><td class="nowrap">${fd(r.rev_date)}</td><td class="num">${inr(r.value)}</td><td class="small">${esc(r.notes || '')}</td></tr>`).join('') : emptyRow(4, 'No revisions')}
+      </tbody></table></div></div>
+  </div>
+  <div class="card" style="margin-top:14px"><div class="card-h"><h3>Follow-ups</h3>${isOpen ? `<button class="btn primary sm" data-act="newFollowup" data-id="${o.id}">＋ Follow-up</button>` : ''}</div>
+    ${fus.length ? fus.map(f => `<div class="list-item"><div><b>${fd(f.fu_date)}</b> ${f.mode ? badge(f.mode) : ''}<div style="white-space:pre-wrap">${esc(f.notes || '')}</div>
+      ${f.next_date ? `<div class="small muted">Next: ${fd(f.next_date)} ${f.done ? '· done' : f.next_date <= t ? badge('Due', 'b-red') : ''}</div>` : ''}</div>
+      <button class="icon-btn" data-act="editFollowup" data-id="${f.id}">✎</button></div>`).join('') : '<div class="empty">No follow-ups logged yet</div>'}</div>`;
+}
+
+/* ---------- Service & AMC ---------- */
+function pgService() {
+  const A = isAdmin(), tab = A ? UI.serviceTab : 'calls', t = today();
+  const calls = S.service.slice().sort((a, b) => (a.status === 'Closed') - (b.status === 'Closed') || b.call_date.localeCompare(a.call_date));
+  const open = calls.filter(s => s.status !== 'Closed');
+  const fy = fyOf(t), fyCalls = calls.filter(s => fyOf(s.call_date) === fy);
+  const head = pageHead(A ? 'Service & AMC' : 'Service calls', A ? 'After-sales: service calls, AMC contracts and warranties' : 'Calls assigned to you or on your projects',
+    A ? `${xBtn('exportService')}${tab === 'amc' ? '<button class="btn primary" data-act="newAmc">＋ AMC contract</button>' : '<button class="btn primary" data-act="newService">＋ Service call</button>'}` : '');
+  const tabs = A ? `<div class="tabs">${[['calls', `Service calls (${open.length} open)`], ['amc', `AMC contracts (${S.amc.length})`], ['warranty', 'Warranties']].map(([k, l]) => `<a href="#" data-act="serviceTab" data-tab="${k}" class="${tab === k ? 'active' : ''}">${l}</a>`).join('')}</div>` : '';
+  if (tab === 'amc') {
+    return head + tabs + `<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Contract</th><th>Client</th><th>Period</th><th class="num">Value</th><th>Visits</th><th>Status</th><th></th></tr></thead><tbody>
+    ${S.amc.length ? S.amc.slice().sort((a, b) => b.end_date.localeCompare(a.end_date)).map(a => { const used = S.service.filter(s => s.amc_id === a.id).length, left = daysBetween(t, a.end_date);
+      const st = a.start_date > t ? badge('Upcoming', 'b-blue') : left < 0 ? badge('Expired') : left <= 30 ? badge(`Ends in ${left} d`, 'b-amber') : badge('Active', 'b-green');
+      return `<tr><td><b>${esc(a.contract_no || '—')}</b>${a.project_id ? `<div class="small muted">${esc(P(a.project_id)?.project_no || '')}</div>` : ''}</td><td>${esc(clientName(a.client_id))}</td>
+      <td class="nowrap">${fd(a.start_date)} → ${fd(a.end_date)}</td><td class="num">${inr(a.value)}</td>
+      <td>${used} / ${a.visits_included || '∞'} ${a.visits_included && used >= a.visits_included ? badge('Used up', 'b-red') : ''}</td><td>${st}</td>
+      <td><div class="row-actions"><button class="icon-btn" data-act="editAmc" data-id="${a.id}">✎</button></div></td></tr>`; }).join('') : emptyRow(7, 'No AMC contracts yet')}
+    </tbody></table></div></div>`;
+  }
+  if (tab === 'warranty') {
+    const rows = S.projects.map(p => ({ p, w: warrantyOf(p), amc: S.amc.find(a => a.project_id === p.id && a.end_date >= t) })).filter(x => x.w).sort((a, b) => a.w.end.localeCompare(b.w.end));
+    return head + tabs + `<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Project</th><th>Client</th><th>Handover</th><th>Warranty ends</th><th>Status</th><th>AMC</th></tr></thead><tbody>
+    ${rows.length ? rows.map(({ p, w, amc }) => `<tr class="click" data-act="go" data-href="#/project/${p.id}/overview"><td><b>${esc(p.project_no)}</b><div class="small muted">${esc(p.name)}</div></td>
+      <td>${esc(clientName(p.client_id))}</td><td class="nowrap">${fd(w.start)}</td><td class="nowrap">${fd(w.end)} <span class="small muted">${w.left >= 0 ? w.left + ' days left' : ''}</span></td>
+      <td>${wBadge(w)}</td><td>${amc ? badge('AMC till ' + fd(amc.end_date), 'b-green') : (w.status !== 'Active' ? badge('Offer AMC', 'b-orange') : '<span class="muted">—</span>')}</td></tr>`).join('')
+      : emptyRow(6, 'No handed-over projects yet. Warranty starts from the handover date (or the date the Handover stage is marked done).')}
+    </tbody></table></div></div>`;
+  }
+  const cost = sum(fyCalls, 'cost'), charges = sum(fyCalls, 'charges');
+  return head + tabs + `<div class="kpis">${kpi('Open calls', open.length, '', open.length ? 'warn' : 'good')}${kpi('Calls this FY', fyCalls.length, SC_TYPES.map(k => `${fyCalls.filter(s => s.call_type === k).length} ${k.toLowerCase()}`).join(' · '))}
+    ${A ? kpi('Service cost (FY)', inr(cost), sum(fyCalls, 'days') + ' engineer-days') + kpi('Charged (FY)', inr(charges), `net ${inr(charges - cost)}`, charges - cost < 0 ? 'warn' : '') : ''}</div>
+  <div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Client / project</th><th>Type</th><th>Issue</th><th>Engineer</th><th>Status</th>${A ? '<th class="num">Cost</th><th class="num">Charges</th><th></th>' : ''}</tr></thead><tbody>
+  ${calls.length ? calls.map(s => `<tr class="${s.status === 'Closed' ? 'done-row' : ''}"><td class="nowrap">${fd(s.call_date)}</td>
+    <td>${esc(clientName(s.client_id))}${s.project_id ? `<div class="small"><a href="#/project/${s.project_id}/overview">${esc(P(s.project_id)?.project_no || '')}</a></div>` : ''}</td>
+    <td>${badge(s.call_type, { Warranty:'b-blue', AMC:'b-green', Chargeable:'b-orange' }[s.call_type])}</td>
+    <td><span class="t-title">${esc(s.issue)}</span>${s.resolution ? `<div class="small muted">${esc(s.resolution)}</div>` : ''}</td>
+    <td>${s.engineer_id ? esc(engName(s.engineer_id)) : '<span class="muted">—</span>'}${s.visit_date ? `<div class="small muted">${fd(s.visit_date)} · ${num(s.days)} d</div>` : ''}</td>
+    <td>${badge(s.status, { Open:'b-red', Attended:'b-amber', Closed:'b-green' }[s.status])}</td>
+    ${A ? `<td class="num">${inr(s.cost)}</td><td class="num">${inr(s.charges)}</td><td><div class="row-actions"><button class="icon-btn" data-act="editService" data-id="${s.id}">✎</button></div></td>` : ''}</tr>`).join('')
+    : emptyRow(A ? 9 : 6, 'No service calls')}
+  </tbody></table></div></div>`;
 }
 
 /* ---------- Receivables ---------- */
-function pgReceivables() {
+function receivableRows() {
   const t = today();
-  const rows = S.milestones.map(m => ({ m, c: msCalc(m), p: P(m.project_id) })).filter(x => x.p && x.c.outstanding > 0.5)
+  return S.milestones.map(m => ({ m, c: msCalc(m), p: P(m.project_id) })).filter(x => x.p && x.c.outstanding > 0.5)
     .map(x => ({ ...x, age: x.m.invoice_date ? daysBetween(x.m.invoice_date, t) : 0 })).sort((a, b) => b.age - a.age);
+}
+function pgReceivables() {
+  const t = today(), rows = receivableRows();
   const bucket = a => a <= 30 ? 0 : a <= 60 ? 1 : a <= 90 ? 2 : 3;
   const B = [0, 0, 0, 0]; rows.forEach(r => B[bucket(r.age)] += r.c.outstanding);
   const planned = S.milestones.map(m => ({ m, c: msCalc(m), p: P(m.project_id) })).filter(x => x.p && !x.c.invoiced && x.p.status !== 'Cancelled')
     .sort((a, b) => (a.m.due_date || '9999').localeCompare(b.m.due_date || '9999'));
-  return pageHead('Receivables', 'Invoiced amounts not yet received (incl. GST)') +
+  return pageHead('Receivables', 'Invoiced amounts not yet received (incl. GST)', xBtn('exportReceivables')) +
   `<div class="kpis">${kpi('Total outstanding', inr(sum(rows, r => r.c.outstanding)), rows.length + ' invoice(s)', rows.length ? 'warn' : 'good')}
     ${kpi('0–30 days', inr(B[0]))}${kpi('31–60 days', inr(B[1]))}${kpi('61–90 days', inr(B[2]), '', B[2] ? 'warn' : '')}${kpi('90+ days', inr(B[3]), '', B[3] ? 'warn' : '')}</div>
   <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Outstanding invoices</h3></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Project</th><th>Client</th><th>Milestone</th><th>Invoice</th><th class="num">Age</th><th class="num">Invoice amt</th><th class="num">Received</th><th class="num">Balance</th><th></th></tr></thead><tbody>
@@ -1043,36 +1774,54 @@ function pgMasters() {
   const tab = UI.masterTab;
   const used = id => S.projects.filter(p => p.client_id === id).length;
   const usedE = id => S.timeLogs.filter(t => t.engineer_id === id);
-  return pageHead('Masters', 'Clients and engineers', tab === 'clients' ? '<button class="btn primary" data-act="newClient">＋ Client</button>' : '<button class="btn primary" data-act="newEngineer">＋ Engineer</button>') +
-  `<div class="tabs"><a href="#" data-act="masterTab" data-tab="clients" class="${tab === 'clients' ? 'active' : ''}">Clients (${S.clients.length})</a><a href="#" data-act="masterTab" data-tab="engineers" class="${tab === 'engineers' ? 'active' : ''}">Engineers (${S.engineers.length})</a></div>` +
-  (tab === 'clients'
-    ? `<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Client</th><th>Location</th><th>Contact</th><th>Phone</th><th>Email</th><th class="num">Projects</th><th></th></tr></thead><tbody>
+  const loginOf = id => S.users.find(u => u.engineer_id === id);
+  const addBtn = { clients: '<button class="btn primary" data-act="newClient">＋ Client</button>', engineers: '<button class="btn primary" data-act="newEngineer">＋ Engineer</button>',
+    docs: '<button class="btn primary" data-act="newDocType">＋ Standard document</button>', users: '<button class="btn primary" data-act="newUser">＋ Give access</button>' }[tab];
+  const tabs = [['clients', `Clients (${S.clients.length})`], ['engineers', `Engineers (${S.engineers.length})`], ['docs', `Standard documents (${S.docTypes.length})`], ['users', `Logins (${S.users.length})`]];
+  let body;
+  if (tab === 'clients') body = `<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Client</th><th>Location</th><th>Contact</th><th>Phone</th><th>Email</th><th class="num">Projects</th><th></th></tr></thead><tbody>
       ${S.clients.length ? S.clients.slice().sort((a, b) => a.name.localeCompare(b.name)).map(c => `<tr><td><b>${esc(c.name)}</b>${c.gstin ? `<div class="small muted">${esc(c.gstin)}</div>` : ''}</td><td>${esc(c.location || '')}</td><td>${esc(c.contact_person || '')}</td>
         <td>${esc(c.phone || '')}</td><td>${esc(c.email || '')}</td><td class="num">${used(c.id)}</td><td><div class="row-actions"><button class="icon-btn" data-act="editClient" data-id="${c.id}">✎</button></div></td></tr>`).join('') : emptyRow(7, 'No clients yet')}
-      </tbody></table></div></div>`
-    : `<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Engineer</th><th class="num">Rate / day</th><th>Status</th><th class="num">Days logged</th><th class="num">Cost logged</th><th></th></tr></thead><tbody>
-      ${S.engineers.length ? S.engineers.slice().sort((a, b) => a.name.localeCompare(b.name)).map(e => { const u = usedE(e.id); return `<tr><td><b>${esc(e.name)}</b></td><td class="num">${inr(e.rate_per_day)}</td>
-        <td>${e.active ? badge('Active', 'b-green') : badge('Inactive')}</td><td class="num">${sum(u, 'days')}</td><td class="num">${inr(sum(u, 'cost'))}</td>
-        <td><div class="row-actions"><button class="icon-btn" data-act="editEngineer" data-id="${e.id}">✎</button></div></td></tr>`; }).join('') : emptyRow(6, 'No engineers yet — add yourself and your team with a cost rate per day')}
-      </tbody></table></div></div>`);
+      </tbody></table></div></div>`;
+  else if (tab === 'engineers') body = `<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Engineer</th><th class="num">Rate / day</th><th>Status</th><th>Login</th><th class="num">Days logged</th><th class="num">Cost logged</th><th></th></tr></thead><tbody>
+      ${S.engineers.length ? S.engineers.slice().sort((a, b) => a.name.localeCompare(b.name)).map(e => { const u = usedE(e.id), l = loginOf(e.id); return `<tr><td><b>${esc(e.name)}</b></td><td class="num">${inr(e.rate_per_day)}</td>
+        <td>${e.active ? badge('Active', 'b-green') : badge('Inactive')}</td><td class="small">${l ? esc(l.email) + ' ' + badge(l.role, l.role === 'admin' ? 'b-navy' : 'b-blue') : '<span class="muted">—</span>'}</td>
+        <td class="num">${sum(u, 'days')}</td><td class="num">${inr(sum(u, 'cost'))}</td>
+        <td><div class="row-actions"><button class="icon-btn" data-act="editEngineer" data-id="${e.id}">✎</button></div></td></tr>`; }).join('') : emptyRow(7, 'No engineers yet — add yourself and your team with a cost rate per day')}
+      </tbody></table></div></div>`;
+  else if (tab === 'docs') body = `<div class="alert ok">These documents are added automatically to every new project.</div><div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>Document</th><th>Type</th><th>Status</th><th></th></tr></thead><tbody>
+      ${S.docTypes.slice().sort((a, b) => a.seq - b.seq).map(d => `<tr><td>${d.seq}</td><td><b>${esc(d.name)}</b></td><td>${d.is_backup ? badge('Program backup', 'b-navy') : 'Document'}</td>
+        <td>${d.active ? badge('Active', 'b-green') : badge('Inactive')}</td><td><div class="row-actions"><button class="icon-btn" data-act="editDocType" data-id="${d.id}">✎</button></div></td></tr>`).join('') || emptyRow(5, 'None')}
+      </tbody></table></div></div>`;
+  else body = `<div class="alert warn">To add someone: 1) Supabase → Authentication → Users → <b>Add user</b> (email + password, auto-confirm). 2) Click <b>Give access</b> here, enter the same email, choose role and engineer. 3) Assign them to projects from each project's Overview → Team.</div>
+    <div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Login</th><th>Role</th><th>Engineer</th><th>Projects</th><th></th></tr></thead><tbody>
+      ${S.users.map(u => `<tr><td><b>${esc(u.email || '')}</b>${u.user_id === USER.id ? ' <span class="small muted">(you)</span>' : ''}</td><td>${badge(u.role, u.role === 'admin' ? 'b-navy' : 'b-blue')}</td>
+        <td>${u.engineer_id ? esc(engName(u.engineer_id)) : '<span class="muted">—</span>'}</td>
+        <td class="small">${u.role === 'admin' ? 'All' : (S.members.filter(m => m.engineer_id === u.engineer_id).map(m => esc(P(m.project_id)?.project_no || '')).join(', ') || '<span class="muted">None assigned</span>')}</td>
+        <td><div class="row-actions"><button class="icon-btn" data-act="editUser" data-id="${u.user_id}">✎</button></div></td></tr>`).join('') || emptyRow(5, 'No logins')}
+      </tbody></table></div></div>`;
+  return pageHead('Masters', 'Clients, engineers, standard documents and logins', addBtn) +
+    `<div class="tabs">${tabs.map(([k, l]) => `<a href="#" data-act="masterTab" data-tab="${k}" class="${tab === k ? 'active' : ''}">${l}</a>`).join('')}</div>` + body;
 }
 
-/* ---------- Backup ---------- */
+/* ---------- Export & Backup ---------- */
 function pgBackup() {
-  return pageHead('Backup', 'Download a full copy of all data') +
-  `<div class="card"><div class="card-b">
-    <p>The backup is a single JSON file with every table. Keep a copy after major updates, and at least once a month.</p>
-    <div class="tbl-wrap" style="max-width:420px;margin-bottom:16px"><table class="tbl"><tbody>
+  return pageHead('Export & Backup', 'Excel export and full data backup') +
+  `<div class="grid g2"><div class="card"><div class="card-h"><h3>Excel workbook</h3></div><div class="card-b">
+    <p>One .xlsx file with a sheet each for projects (with cost and margin), tasks, punch list, documents, purchases, time, expenses, payments, receipts, offers, service calls, AMC and clients. Useful for your CA and month-end review.</p>
+    <button class="btn primary" data-act="exportAll">⬇ Download Excel workbook</button></div></div>
+  <div class="card"><div class="card-h"><h3>JSON backup</h3></div><div class="card-b">
+    <p>A complete copy of every table (plus the audit log) in one file. Keep a copy after major updates, and at least once a month.</p>
+    <div class="tbl-wrap" style="margin-bottom:16px"><table class="tbl"><tbody>
       ${Object.keys(TABLES).map(k => `<tr><td>${TABLES[k]}</td><td class="num">${S[k].length}</td></tr>`).join('')}
     </tbody></table></div>
-    <button class="btn primary" data-act="backup">⬇ Download JSON backup</button>
-  </div></div>`;
+    <button class="btn primary" data-act="backup">⬇ Download JSON backup</button></div></div></div>`;
 }
 async function doBackup(btn) {
   await guarded(btn, async () => {
     loading(true, 'Preparing backup…');
     try {
-      const out = { app: 'averon-project-tracker', version: 1, exported_at: new Date().toISOString(), tables: {} };
+      const out = { app: 'averon-project-tracker', version: 2, exported_at: new Date().toISOString(), tables: {} };
       for (const k of Object.keys(TABLES)) out.tables[TABLES[k]] = await fetchAll(TABLES[k]);
       try { out.tables.audit_log = await fetchAll('audit_log'); } catch (e) { /* optional */ }
       const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
@@ -1105,6 +1854,17 @@ async function autoPlan(pid, btn) {
     await reload('stages'); render(); toast('Planned dates set — adjust any stage as needed');
   });
 }
+function openLostForm(o) {
+  openForm({
+    title: `Close ${offerNo(o)} as lost / dropped`,
+    fields: [
+      { k:'status', label:'Outcome', type:'select', options:['Lost','Dropped'], blank:false },
+      { k:'lost_date', label:'Date', type:'date', required:true },
+      { k:'lost_reason', label:'Reason', placeholder:'e.g. Price, competitor, project shelved', full:true }
+    ], values: { status:'Lost', lost_date: today() },
+    onSave: async v => { await dbUpdate('offers', o.id, v); toast('Offer closed'); }
+  });
+}
 const ACTIONS = {
   openNav: () => $('#app').classList.add('nav-open'),
   closeNav: () => $('#app').classList.remove('nav-open'),
@@ -1112,16 +1872,27 @@ const ACTIONS = {
   go: d => { location.hash = d.href; },
   newProject: () => openProjectForm(null),
   editProject: d => openProjectForm(P(d.id)),
+  editTeam: d => openTeamForm(P(d.id)),
   editStage: d => openStageForm(S.stages.find(s => s.id === d.id)),
   stageStart: (d, el) => guarded(el, async () => { await dbUpdate('stages', d.id, { status: 'In Progress', actual_start: today() }); render(); toast('Stage started'); }),
   stageDone: (d, el) => guarded(el, async () => { const s = S.stages.find(x => x.id === d.id);
+    const blk = stageBlock(s, 'Done'); if (blk) return toast(blk, true);
     await dbUpdate('stages', d.id, { status: 'Done', actual_start: s.actual_start || today(), actual_end: today() }); render();
     const left = S.stages.filter(x => x.project_id === s.project_id && x.status !== 'Done' && x.status !== 'Skipped').length;
-    toast(left ? 'Stage completed' : 'All stages done — mark the project Completed from Edit'); }),
+    toast(s.seq === HANDOVER_SEQ ? 'Handed over — warranty period has started' : left ? 'Stage completed' : 'All stages done — mark the project Completed from Edit'); }),
   autoPlan: (d, el) => autoPlan(d.id, el),
   newTask: d => openTaskForm(null, d.pid),
   editTask: d => openTaskForm(S.tasks.find(t => t.id === d.id)),
   toggleTask: (d, el) => guarded(el, async () => { const done = el.checked; await dbUpdate('tasks', d.id, { status: done ? 'Done' : 'Open', completed_at: done ? today() : null }); render(); }),
+  newPunch: d => openPunchForm(null, d.pid),
+  editPunch: d => openPunchForm(S.punch.find(x => x.id === d.id)),
+  closePunch: (d, el) => guarded(el, async () => { await dbUpdate('punch', d.id, { status: 'Closed', closed_date: today() }); render(); toast('Punch item closed'); }),
+  newDoc: d => openDocForm(null, d.pid),
+  editDoc: d => openDocForm(S.docs.find(x => x.id === d.id)),
+  addMissingDocs: (d, el) => guarded(el, async () => { const n = await rpc('add_missing_docs', { pid: d.id }); await reload('docs'); render(); toast(`${n} document(s) added`); }),
+  newPurchase: d => openPurchaseForm(null, d.pid),
+  editPurchase: d => openPurchaseForm(S.purchases.find(x => x.id === d.id)),
+  receivePurchase: d => openReceiveForm(S.purchases.find(x => x.id === d.id)),
   newTime: d => openTimeForm(null, d.pid),
   editTime: d => openTimeForm(S.timeLogs.find(t => t.id === d.id)),
   newExpense: d => openExpenseForm(null, d.pid),
@@ -1135,7 +1906,34 @@ const ACTIONS = {
   editClient: d => openClientForm(C(d.id)),
   newEngineer: () => openEngineerForm(null),
   editEngineer: d => openEngineerForm(E(d.id)),
+  newDocType: () => openDocTypeForm(null),
+  editDocType: d => openDocTypeForm(S.docTypes.find(x => x.id === d.id)),
+  newUser: () => openUserForm(null),
+  editUser: d => openUserForm(S.users.find(u => u.user_id === d.id)),
   masterTab: d => { UI.masterTab = d.tab; render(); },
+  serviceTab: d => { UI.serviceTab = d.tab; render(); },
+  newService: () => openServiceForm(null),
+  editService: d => openServiceForm(S.service.find(x => x.id === d.id)),
+  newAmc: () => openAmcForm(null),
+  editAmc: d => openAmcForm(S.amc.find(x => x.id === d.id)),
+  newOffer: () => openOfferForm(null),
+  editOffer: d => openOfferForm(OFR(d.id)),
+  reviseOffer: d => openReviseForm(OFR(d.id)),
+  lostOffer: d => openLostForm(OFR(d.id)),
+  convertOffer: d => openConvertForm(OFR(d.id)),
+  newFollowup: d => openFollowupForm(null, d.id),
+  editFollowup: d => openFollowupForm(S.followups.find(f => f.id === d.id)),
+  report: d => printReport(d.id, isAdmin() && d.internal === '1'),
+  exportProject: d => exportProject(d.id),
+  exportProjects: () => xlsxExport(`projects-${fileDate()}.xlsx`, [{ name: 'Projects', rows: X.projects(filteredProjects()) }]),
+  exportTasks: () => xlsxExport(`tasks-${fileDate()}.xlsx`, [{ name: 'Tasks', rows: X.tasks(filteredTasks()) }, { name: 'Punch list', rows: X.punch(S.punch) }]),
+  exportOffers: () => xlsxExport(`offers-${fileDate()}.xlsx`, [{ name: 'Offers', rows: X.offers(filteredOffers()) },
+    { name: 'Follow-ups', rows: S.followups.map(f => ({ 'Offer': offerNo(OFR(f.offer_id) || { offer_no: '', rev: 0 }), 'Date': xd(f.fu_date), 'Mode': f.mode || '', 'Discussion': f.notes || '', 'Next': xd(f.next_date), 'Done': f.done ? 'Yes' : '' })) }]),
+  exportService: () => xlsxExport(`service-${fileDate()}.xlsx`, [{ name: 'Service calls', rows: X.service(S.service) }]),
+  exportReceivables: () => xlsxExport(`receivables-${fileDate()}.xlsx`, [{ name: 'Outstanding', rows: receivableRows().map(r => ({ 'Project': r.p.project_no, 'Client': clientName(r.p.client_id), 'Milestone': r.m.label,
+    'Invoice no.': r.m.invoice_no || '', 'Invoice date': xd(r.m.invoice_date), 'Age (days)': r.age, 'Invoice incl. GST': r.c.gross, 'Received': r.c.received, 'Balance': r.c.outstanding })) },
+    { name: 'All milestones', rows: X.milestones(S.milestones) }]),
+  exportAll: () => exportEverything(),
   backup: (d, el) => doBackup(el)
 };
 document.addEventListener('click', e => {
@@ -1151,23 +1949,30 @@ document.addEventListener('click', e => {
 function render() {
   if (!USER) return;
   const parts = (location.hash.replace(/^#\/?/, '') || 'dashboard').split('/');
-  const page = parts[0];
-  const navKey = page === 'project' ? 'projects' : page;
-  $('#nav').innerHTML = NAV.map(([k, l]) => `<a href="#/${k}" class="${k === navKey ? 'active' : ''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[k]}</svg>${l}</a>`).join('');
-  const html = ({ dashboard: pgDashboard, projects: pgProjects, project: () => pgProject(parts[1], parts[2]), tasks: pgTasks, entry: pgEntry,
-    receivables: pgReceivables, masters: pgMasters, backup: pgBackup }[page] || pgDashboard)();
+  const A = isAdmin(), nav = A ? NAV_ADMIN : NAV_ENG;
+  let page = parts[0];
+  const allowed = new Set([...nav.map(n => n[0]), 'project', ...(A ? ['offer'] : [])]);
+  if (!allowed.has(page)) page = 'dashboard';
+  const navKey = page === 'project' ? 'projects' : page === 'offer' ? 'crm' : page;
+  $('#nav').innerHTML = nav.map(([k, l]) => `<a href="#/${k}" class="${k === navKey ? 'active' : ''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[k]}</svg>${l}</a>`).join('');
+  const html = ({ dashboard: pgDashboard, crm: pgCrm, offer: () => pgOffer(parts[1]), projects: pgProjects, project: () => pgProject(parts[1], parts[2]), tasks: pgTasks, entry: pgEntry,
+    service: pgService, receivables: pgReceivables, masters: pgMasters, backup: pgBackup }[page] || pgDashboard)();
   const ct = $('#content'), scroll = window.scrollY, same = render._last === location.hash;
   ct.innerHTML = html; render._last = location.hash;
   if (!same) window.scrollTo(0, 0); else window.scrollTo(0, scroll);
-  // page-specific bindings
   if (page === 'projects') {
     $('#projSearch').addEventListener('input', debounce(e => { UI.projSearch = e.target.value; $('#projBody').innerHTML = projectRows(); }, 250));
     $('#projStatus').onchange = e => { UI.projStatus = e.target.value; $('#projBody').innerHTML = projectRows(); };
+  }
+  if (page === 'crm') {
+    $('#crmSearch').addEventListener('input', debounce(e => { UI.crmSearch = e.target.value; $('#crmBody').innerHTML = offerRows(); }, 250));
+    $('#crmStatus').onchange = e => { UI.crmStatus = e.target.value; $('#crmBody').innerHTML = offerRows(); };
   }
   if (page === 'tasks') {
     $('#taskProject').onchange = e => { UI.taskProject = e.target.value; render(); };
     $('#taskStatus').onchange = e => { UI.taskStatus = e.target.value; render(); };
   }
+  if (page === 'project' && $('#punchFilter')) $('#punchFilter').onchange = e => { UI.punchFilter = e.target.value; render(); };
   if (page === 'entry') bindEntry();
 }
 window.addEventListener('hashchange', () => { $('#app').classList.remove('nav-open'); closeModal(); render(); });
@@ -1183,12 +1988,14 @@ function showLogin(msg) {
 async function boot(session) {
   loading(true, 'Loading projects…');
   try {
-    const { data: mem, error: me } = await sb.from('app_users').select('user_id').eq('user_id', session.user.id).maybeSingle();
+    const { data: mem, error: me } = await sb.from('app_users').select('user_id, role, engineer_id').eq('user_id', session.user.id).maybeSingle();
     if (me) throw me;
     if (!mem) { await sb.auth.signOut(); loading(false); return showLogin('This account is not authorised for the Averon Project Tracker.'); }
+    ROLE = mem.role || 'engineer'; MY_ENG = mem.engineer_id || null;
     USER = session.user;
+    Object.keys(TABLES).forEach(k => S[k] = []);
     await loadAll();
-    $('#whoami').textContent = USER.email;
+    $('#whoami').innerHTML = esc(USER.email) + `<div style="color:#C9D3E3;margin-top:2px">${isAdmin() ? 'Admin' : 'Engineer'}</div>`;
     $('#login').classList.add('hidden'); $('#app').classList.remove('hidden');
     render();
   } catch (e) {
@@ -1220,6 +2027,7 @@ sb.auth.onAuthStateChange((event) => { if (event === 'SIGNED_OUT' && USER) setTi
   const { data: { session } } = await sb.auth.getSession();
   if (session) boot(session); else showLogin();
 })();
+
 </script>
 </body>
 </html>
