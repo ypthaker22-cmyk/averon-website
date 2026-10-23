@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Averon Projects</title>
+<meta name="theme-color" content="#1B2A41">
+<meta name="robots" content="noindex, nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Averon Projects">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{
+  --navy:#1B2A41;--navy2:#24385A;--navy3:#33507F;--orange:#E8702A;--orange-l:#FDEBDD;
+  --bg:#F3F5F8;--card:#FFFFFF;--line:#E2E6EC;--text:#1D2939;--muted:#667085;
+  --green:#12B76A;--green-l:#E3F8EE;--red:#D92D20;--red-l:#FDECEA;--amber:#DC8A06;--amber-l:#FEF4E2;--blue:#2E6BD8;--blue-l:#E6EEFB;
+  --r:10px;--shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:'Space Grotesk',system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--navy3)}
+.hidden{display:none!important}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.nowrap{white-space:nowrap}
+
+/* ---------- login ---------- */
+#login{min-height:100%;display:flex;align-items:center;justify-content:center;padding:16px;background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%)}
+.login-card{background:#fff;border-radius:14px;padding:32px 28px;width:100%;max-width:380px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.3px}
+.brand-mark{width:34px;height:34px;border-radius:8px;background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
+.login-card h1{font-size:20px;margin:22px 0 4px}
+.login-card p{margin:0 0 20px}
+
+/* ---------- shell ---------- */
+#app{display:flex;min-height:100%}
+#side{align-self:flex-start;width:228px;background:var(--navy);color:#C9D3E3;flex-shrink:0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+#side .brand{color:#fff;padding:18px 18px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
+#side .brand small{display:block;font-weight:400;font-size:11px;color:#8FA0BC;letter-spacing:1.2px;text-transform:uppercase}
+#nav{padding:10px 8px;flex:1;overflow:auto}
+#nav a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;color:#C9D3E3;text-decoration:none;font-weight:500;margin-bottom:2px}
+#nav a:hover{background:rgba(255,255,255,.06);color:#fff}
+#nav a.active{background:rgba(232,112,42,.16);color:#fff;box-shadow:inset 3px 0 0 var(--orange)}
+#nav a svg{width:18px;height:18px;flex-shrink:0;opacity:.9}
+#side .foot{padding:12px 16px;border-top:1px solid rgba(255,255,255,.08);font-size:12px}
+#side .foot button{background:none;border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:5px 10px;cursor:pointer;margin-top:6px}
+#main{flex:1;min-width:0;display:flex;flex-direction:column}
+#topbar{display:none;align-items:center;gap:12px;background:var(--navy);color:#fff;padding:10px 14px;position:sticky;top:0;z-index:30;padding-top:max(10px,env(safe-area-inset-top))}
+#topbar button{background:none;border:0;color:#fff;padding:4px;cursor:pointer}
+#content{padding:22px 26px 60px;max-width:1400px;width:100%}
+#scrim{display:none}
+
+@media (max-width:860px){
+  #side{position:fixed;left:0;top:0;bottom:0;z-index:50;transform:translateX(-100%);transition:transform .2s}
+  #app.nav-open #side{transform:none}
+  #app.nav-open #scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:40}
+  #topbar{display:flex}
+  #content{padding:16px 16px 60px}
+}
+
+/* ---------- common ---------- */
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.page-head h2{margin:0;font-size:22px;font-weight:700}
+.page-head .sub{color:var(--muted);margin-top:3px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:500;white-space:nowrap;text-decoration:none;color:var(--text)}
+.btn:hover{border-color:#C5CCD6}
+.btn.primary{background:var(--orange);border-color:var(--orange);color:#fff}
+.btn.primary:hover{background:#D5621F}
+.btn.navy{background:var(--navy);border-color:var(--navy);color:#fff}
+.btn.danger{color:var(--red)}
+.btn.sm{padding:4px 10px;font-size:12px;border-radius:6px}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.icon-btn{border:0;background:none;cursor:pointer;color:var(--muted);padding:4px 6px;border-radius:6px}
+.icon-btn:hover{background:#EEF1F5;color:var(--text)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.card-h h3{margin:0;font-size:15px}
+.card-b{padding:14px 16px}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:980px){.g2,.g3{grid-template-columns:1fr}}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:13px 15px;box-shadow:var(--shadow)}
+.kpi .l{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+.kpi .v{font-size:22px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12px;color:var(--muted);margin-top:2px}
+.kpi.warn .v{color:var(--red)}
+.kpi.good .v{color:var(--green)}
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;background:#EEF1F5;color:#475467}
+.b-green{background:var(--green-l);color:#067647}
+.b-red{background:var(--red-l);color:#B42318}
+.b-amber{background:var(--amber-l);color:#B54708}
+.b-blue{background:var(--blue-l);color:#1849A9}
+.b-navy{background:var(--navy);color:#fff}
+.b-orange{background:var(--orange-l);color:#B54708}
+.tbl-wrap{overflow-x:auto}
+table.tbl{width:100%;border-collapse:collapse}
+.tbl th{text-align:left;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:9px 12px;border-bottom:1px solid var(--line);background:#FAFBFC;white-space:nowrap}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:0}
+.tbl tbody tr.click{cursor:pointer}
+.tbl tbody tr.click:hover{background:#F8F9FB}
+.tbl tfoot td{font-weight:700;background:#FAFBFC;border-top:1px solid var(--line)}
+.tbl th.num{text-align:right}
+.empty{padding:28px 16px;text-align:center;color:var(--muted)}
+.prog{height:7px;background:#E9EDF2;border-radius:99px;overflow:hidden;min-width:80px}
+.prog > i{display:block;height:100%;background:var(--orange);border-radius:99px}
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.filters input,.filters select{border:1px solid var(--line);border-radius:8px;padding:8px 11px;background:#fff;min-width:0}
+.filters input[type=search]{flex:1;min-width:200px}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
+.tabs a{padding:10px 14px;text-decoration:none;color:var(--muted);font-weight:600;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tabs a.active{color:var(--navy);border-color:var(--orange)}
+.dl{display:grid;grid-template-columns:150px 1fr;gap:8px 14px;margin:0}
+.dl dt{color:var(--muted)}
+.dl dd{margin:0}
+.list-item{display:flex;justify-content:space-between;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);align-items:center}
+.list-item:last-child{border-bottom:0}
+.pipeline{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:6px}
+.pipe{background:#F6F7F9;border:1px solid var(--line);border-radius:8px;padding:10px 6px;text-align:center}
+.pipe .n{font-size:22px;font-weight:700}
+.pipe .t{font-size:11px;color:var(--muted);line-height:1.2;margin-top:3px}
+.pipe.on{background:var(--orange-l);border-color:#F6C7A6}
+@media (max-width:860px){.pipeline{grid-template-columns:repeat(3,1fr)}}
+.alert{padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:13px}
+.alert.warn{background:var(--amber-l);color:#93370D;border:1px solid #F8D9A8}
+.alert.ok{background:var(--green-l);color:#05603A;border:1px solid #ABEFC6}
+.alert.err{background:var(--red-l);color:#912018;border:1px solid #FECDCA}
+
+/* timeline */
+.tl{position:relative;padding:4px 0}
+.tl-row{display:grid;grid-template-columns:170px 1fr;align-items:center;gap:10px;height:30px}
+.tl-row .lbl{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-track{position:relative;height:18px;background:#F3F5F8;border-radius:4px}
+.tl-plan{position:absolute;top:2px;height:14px;background:#C9D3E3;border-radius:3px}
+.tl-act{position:absolute;top:6px;height:6px;background:var(--orange);border-radius:3px}
+.tl-act.done{background:var(--green)}
+.tl-today{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--red);opacity:.6}
+.tl-legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-top:8px;flex-wrap:wrap}
+.tl-legend i{display:inline-block;width:14px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle}
+@media (max-width:640px){.tl-row{grid-template-columns:96px 1fr}}
+
+/* forms & modal */
+.modal-bg{position:fixed;inset:0;background:rgba(16,24,40,.5);z-index:100;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
+.modal{background:#fff;border-radius:12px;width:100%;max-width:640px;box-shadow:0 24px 60px rgba(0,0,0,.3)}
+.modal.wide{max-width:820px}
+.modal-h{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line)}
+.modal-h h3{margin:0;font-size:17px}
+.modal-b{padding:18px 20px}
+.modal-f{display:flex;justify-content:space-between;gap:8px;padding:14px 20px;border-top:1px solid var(--line);background:#FAFBFC;border-radius:0 0 12px 12px}
+.modal-f .r{display:flex;gap:8px;margin-left:auto}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}
+.form-grid .full{grid-column:1/-1}
+@media (max-width:560px){.form-grid{grid-template-columns:1fr}}
+.fld label{display:block;font-size:12px;font-weight:600;color:#475467;margin-bottom:5px}
+.fld label .req{color:var(--red)}
+.fld input,.fld select,.fld textarea{width:100%;border:1px solid #D0D5DD;border-radius:8px;padding:9px 11px;background:#fff}
+.fld input:focus,.fld select:focus,.fld textarea:focus{outline:2px solid rgba(232,112,42,.35);border-color:var(--orange)}
+.fld textarea{min-height:70px;resize:vertical}
+.fld .help{font-size:12px;color:var(--muted);margin-top:4px}
+.checks{display:flex;flex-wrap:wrap;gap:8px}
+.checks label{display:inline-flex;align-items:center;gap:6px;border:1px solid #D0D5DD;border-radius:8px;padding:7px 11px;font-weight:500;font-size:13px;color:var(--text);margin:0;cursor:pointer}
+.checks input{width:auto}
+.form-err{margin-bottom:12px}
+.sect-title{grid-column:1/-1;font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--orange);font-weight:700;margin-top:6px;border-top:1px dashed var(--line);padding-top:12px}
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;z-index:200;box-shadow:0 10px 30px rgba(0,0,0,.25);font-weight:500;max-width:calc(100% - 32px)}
+#toast.err{background:var(--red)}
+#loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(243,245,248,.8);z-index:150;font-weight:600;color:var(--navy)}
+.spin{width:22px;height:22px;border:3px solid #D0D5DD;border-top-color:var(--orange);border-radius:50%;animation:sp 0.8s linear infinite;margin-right:10px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.chk{width:18px;height:18px;accent-color:var(--green);cursor:pointer}
+.done-row td{color:var(--muted)}
+.done-row .t-title{text-decoration:line-through}
+.row-actions{display:flex;gap:2px;justify-content:flex-end;white-space:nowrap}
+.row-actions.stack{flex-direction:column;align-items:stretch;gap:4px}
+.row-actions.stack .btn{justify-content:center}
+.row-actions.stack .icon-btn{align-self:flex-end}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="login" class="hidden">
+  <form class="login-card" id="loginForm">
+    <div class="brand"><div class="brand-mark">A</div><div>AVERON AUTOMATION</div></div>
+    <h1>Project Tracker</h1>
+    <p class="muted">Sign in to continue</p>
+    <div id="loginErr" class="alert err hidden"></div>
+    <div class="fld" style="margin-bottom:12px"><label>Email</label><input type="email" id="lgEmail" required autocomplete="username"></div>
+    <div class="fld" style="margin-bottom:18px"><label>Password</label><input type="password" id="lgPass" required autocomplete="current-password"></div>
+    <button class="btn primary" style="width:100%;justify-content:center" id="lgBtn">Sign in</button>
+  </form>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app" class="hidden">
+  <div id="scrim" data-act="closeNav"></div>
+  <aside id="side">
+    <div class="brand"><div class="brand-mark">A</div><div>AVERON<small>Project Tracker</small></div></div>
+    <nav id="nav"></nav>
+    <div class="foot"><div id="whoami" class="muted" style="color:#8FA0BC;word-break:break-all"></div><button data-act="logout">Sign out</button></div>
+  </aside>
+  <div id="main">
+    <div id="topbar">
+      <button data-act="openNav" aria-label="Menu"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+      <strong>Averon Projects</strong>
+    </div>
+    <div id="content"></div>
+  </div>
+</div>
+
+<div id="modalRoot"></div>
+<div id="toast" class="hidden"></div>
+<div id="loading" class="hidden"><div class="spin"></div><span id="loadingTxt">Loading…</span></div>
+
+<script>
+/* =====================================================================
+   CONFIG — paste your Supabase project URL and anon (public) key here
+   ===================================================================== */
+const SUPABASE_URL = 'https://lnnalvtolcakrdiotuqi.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxubmFsdnRvbGNha3JkaW90dXFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3Njg4OTQsImV4cCI6MjEwODM0NDg5NH0.ULW71g7wi4fGLGWz4LP5zoVsdZ7FmNxSk_aCCEtcFFA';
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ---------------- constants ---------------- */
+const STAGES = ['Design / FDS','Panel build','PLC/HMI development','FAT','Dispatch','Installation','Commissioning','SAT','Handover'];
+const STAGE_WEIGHTS = [12,12,20,8,3,10,15,10,10]; // used by "Auto-plan"
+const EXP_CATS = ['Hardware','Panel fabrication','Bought-out items','Software/licenses','Travel','Lodging & food','Subcontract','Misc'];
+const BUDGET_CATS = ['Labour', ...EXP_CATS];
+const SCOPES = ['PLC','HMI','SCADA','Panel'];
+const PLATFORMS = ['Siemens','Mitsubishi','Delta','Allen-Bradley / Rockwell','Schneider','zenon','FT Optix','Multiple','Other'];
+const P_STATUS = ['Active','On Hold','Completed','Cancelled'];
+const S_STATUS = ['Not Started','In Progress','Done','Skipped'];
+const T_STATUS = ['Open','In Progress','Done'];
+const T_PRIORITY = ['Low','Normal','High'];
+const PAY_MODES = ['NEFT/RTGS','Cheque','UPI','Cash','Other'];
+const TABLES = {clients:'clients',engineers:'engineers',projects:'projects',stages:'project_stages',tasks:'tasks',
+  timeLogs:'time_logs',expenses:'expenses',budget:'project_budget',milestones:'payment_milestones',receipts:'payment_receipts'};
+
+const ICONS = {
+  dashboard:'<path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z"/>',
+  projects:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  tasks:'<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>',
+  entry:'<path d="M12 5v14M5 12h14"/>',
+  receivables:'<path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+  masters:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  backup:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>'
+};
+const NAV = [['dashboard','Dashboard'],['projects','Projects'],['tasks','Tasks'],['entry','Quick Entry'],['receivables','Receivables'],['masters','Masters'],['backup','Backup']];
+
+/* ---------------- state ---------------- */
+let S = {}; Object.keys(TABLES).forEach(k => S[k] = []);
+let USER = null;
+const UI = { projSearch:'', projStatus:'Active', taskProject:'', taskStatus:'open', masterTab:'clients' };
+
+/* ---------------- utils ---------------- */
+const $ = s => document.querySelector(s);
+const esc = v => (v === null || v === undefined) ? '' : String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = v => { const n = Number(v); return isFinite(n) ? n : 0; };
+const sum = (arr, f) => arr.reduce((a, x) => a + num(typeof f === 'function' ? f(x) : x[f]), 0);
+const inr = (v, dec = 0) => '₹' + num(v).toLocaleString('en-IN', {minimumFractionDigits:dec, maximumFractionDigits:dec});
+const pct = v => (v === null || v === undefined || !isFinite(v)) ? '—' : (Math.round(v * 10) / 10).toFixed(1) + '%';
+const today = () => new Date().toLocaleDateString('en-CA', {timeZone:'Asia/Kolkata'});
+const dms = s => Date.parse(s + 'T00:00:00Z');
+const addDays = (s, n) => new Date(dms(s) + n * 86400000).toISOString().slice(0, 10);
+const daysBetween = (a, b) => Math.round((dms(b) - dms(a)) / 86400000);
+const fd = s => { if (!s) return '—'; const [y, m, d] = String(s).slice(0, 10).split('-'); return `${d}-${m}-${y}`; };
+const debounce = (fn, ms = 250) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+const opt = (arr, sel, blank) => (blank !== undefined ? `<option value="">${esc(blank)}</option>` : '') +
+  arr.map(o => { const v = typeof o === 'object' ? o.v : o, l = typeof o === 'object' ? o.l : o;
+    return `<option value="${esc(v)}" ${String(v) === String(sel ?? '') ? 'selected' : ''}>${esc(l)}</option>`; }).join('');
+
+const P = id => S.projects.find(p => p.id === id);
+const C = id => S.clients.find(c => c.id === id);
+const E = id => S.engineers.find(e => e.id === id);
+const clientName = id => C(id)?.name || '—';
+const stageName = seq => seq ? (STAGES[seq - 1] || '—') : '—';
+const projLabel = p => p ? `${p.project_no} · ${p.name}` : '—';
+
+function toast(msg, err) {
+  const t = $('#toast'); t.textContent = msg; t.className = err ? 'err' : ''; clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.className = 'hidden', err ? 5000 : 2500);
+}
+function loading(on, txt) { $('#loading').classList.toggle('hidden', !on); if (txt) $('#loadingTxt').textContent = txt; }
+function niceErr(e) {
+  const m = e?.message || String(e);
+  if (e?.code === '23503') return 'This record is linked to other records and cannot be deleted/changed.';
+  if (e?.code === '23505') return 'A record with the same value already exists.';
+  if (e?.code === '23514') return 'A value is outside the allowed range: ' + m;
+  if (e?.code === '42501' || /row-level security/i.test(m)) return 'Not authorised for this action.';
+  return m;
+}
+
+/* ---------------- data layer ---------------- */
+async function fetchAll(table) {
+  let out = [], from = 0;
+  for (;;) {
+    const { data, error } = await sb.from(table).select('*').order('created_at', {ascending:true}).order('id', {ascending:true}).range(from, from + 999);
+    if (error) throw error;
+    out = out.concat(data || []);
+    if (!data || data.length < 1000) break;
+    from += 1000;
+  }
+  return out;
+}
+async function loadAll() {
+  const keys = Object.keys(TABLES);
+  const res = await Promise.all(keys.map(k => fetchAll(TABLES[k])));
+  keys.forEach((k, i) => S[k] = res[i]);
+}
+async function reload(...keys) {
+  const res = await Promise.all(keys.map(k => fetchAll(TABLES[k])));
+  keys.forEach((k, i) => S[k] = res[i]);
+}
+async function dbInsert(key, vals) {
+  const { data, error } = await sb.from(TABLES[key]).insert(vals).select();
+  if (error) throw error; await reload(key); return data && data[0];
+}
+async function dbUpdate(key, id, vals) {
+  const { error } = await sb.from(TABLES[key]).update(vals).eq('id', id);
+  if (error) throw error; await reload(key);
+}
+async function dbDelete(key, id, ...also) {
+  const { error } = await sb.from(TABLES[key]).delete().eq('id', id);
+  if (error) throw error; await reload(key, ...also);
+}
+
+/* ---------------- calculations ---------------- */
+function msCalc(m) {
+  const received = sum(S.receipts.filter(r => r.milestone_id === m.id), 'amount');
+  const invoiced = !!(m.invoice_no || num(m.invoice_amount) > 0);
+  const inv = num(m.invoice_amount);
+  const gross = Math.round(inv * (1 + num(m.gst_pct) / 100) * 100) / 100;
+  let status;
+  if (!invoiced) status = received > 0 ? 'Advance Received' : 'Pending';
+  else if (received <= 0) status = 'Invoiced';
+  else if (received + 1 < gross) status = 'Partially Paid';
+  else status = 'Paid';
+  const outstanding = invoiced ? Math.max(gross - received, 0) : 0;
+  const overdue = status !== 'Paid' && m.due_date && m.due_date < today();
+  return { received, invoiced, inv, gross, outstanding, status, overdue };
+}
+function projCalc(p) {
+  const id = p.id;
+  const st = S.stages.filter(s => s.project_id === id).sort((a, b) => a.seq - b.seq);
+  const tl = S.timeLogs.filter(t => t.project_id === id);
+  const ex = S.expenses.filter(e => e.project_id === id);
+  const ms = S.milestones.filter(m => m.project_id === id);
+  const labour = sum(tl, 'cost'), exp = sum(ex, 'amount'), cost = labour + exp, po = num(p.po_value);
+  const margin = po - cost, marginPct = po ? margin / po * 100 : null;
+  const counted = st.filter(s => s.status !== 'Skipped');
+  const done = counted.filter(s => s.status === 'Done').length;
+  const progress = counted.length ? done / counted.length * 100 : 0;
+  const cur = st.find(s => s.status !== 'Done' && s.status !== 'Skipped') || null;
+  const mc = ms.map(msCalc);
+  const invoicedGross = sum(mc, 'gross'), received = sum(mc, 'received'), outstanding = sum(mc, 'outstanding');
+  const msPct = sum(ms, m => m.pct), msAmt = sum(ms, 'amount');
+  const lateStage = st.some(s => s.status !== 'Done' && s.status !== 'Skipped' && s.planned_end && s.planned_end < today());
+  const days = sum(tl, 'days');
+  return { st, tl, ex, ms, labour, exp, cost, po, margin, marginPct, progress, cur, invoicedGross, received, outstanding, msPct, msAmt, lateStage, days };
+}
+
+/* ---------------- badges ---------------- */
+const badge = (t, c) => `<span class="badge ${c || ''}">${esc(t)}</span>`;
+const pBadge = s => badge(s, {Active:'b-blue','On Hold':'b-amber',Completed:'b-green',Cancelled:'b-red'}[s]);
+const sBadge = s => badge(s, {'In Progress':'b-orange',Done:'b-green',Skipped:''}[s] || '');
+const tBadge = s => badge(s, {'In Progress':'b-orange',Done:'b-green',Open:'b-blue'}[s]);
+const prBadge = s => badge(s, {High:'b-red',Normal:'',Low:''}[s]);
+const mBadge = c => badge(c.status, {Paid:'b-green','Partially Paid':'b-amber',Invoiced:'b-blue','Advance Received':'b-orange'}[c.status] || '') + (c.overdue ? ' ' + badge('Overdue', 'b-red') : '');
+const marginCls = v => v === null ? '' : v < 0 ? 'b-red' : v < 15 ? 'b-amber' : 'b-green';
+const progBar = v => `<div class="prog" title="${Math.round(v)}%"><i style="width:${Math.max(0, Math.min(100, v))}%"></i></div>`;
+
+/* =====================================================================
+   FORM ENGINE
+   field: {k,label,type,options,required,full,help,step,min,section,placeholder}
+   ===================================================================== */
+function fieldHTML(f, v) {
+  if (f.type === 'section') return `<div class="sect-title">${esc(f.label)}</div>`;
+  const id = 'f_' + f.k, req = f.required ? ' <span class="req">*</span>' : '';
+  let inp;
+  const val = v ?? f.default ?? '';
+  switch (f.type) {
+    case 'select': inp = `<select id="${id}" name="${f.k}">${opt(f.options, val, f.blank === false ? undefined : (f.blank || '— Select —'))}</select>`; break;
+    case 'textarea': inp = `<textarea id="${id}" name="${f.k}" placeholder="${esc(f.placeholder || '')}">${esc(val)}</textarea>`; break;
+    case 'checks': { const arr = Array.isArray(val) ? val : [];
+      inp = `<div class="checks">${f.options.map(o => `<label><input type="checkbox" name="${f.k}" value="${esc(o)}" ${arr.includes(o) ? 'checked' : ''}> ${esc(o)}</label>`).join('')}</div>`; break; }
+    case 'bool': inp = `<div class="checks"><label><input type="checkbox" name="${f.k}" ${val === true || val === '' && f.default ? 'checked' : ''}> ${esc(f.text || 'Yes')}</label></div>`; break;
+    default: inp = `<input id="${id}" name="${f.k}" type="${f.type || 'text'}" value="${esc(val)}" ${f.step ? `step="${f.step}"` : ''} ${f.min !== undefined ? `min="${f.min}"` : ''} placeholder="${esc(f.placeholder || '')}" ${f.type === 'number' ? 'inputmode="decimal"' : ''}>`;
+  }
+  return `<div class="fld ${f.full || f.type === 'textarea' || f.type === 'checks' ? 'full' : ''}"><label for="${id}">${esc(f.label)}${req}</label>${inp}${f.help ? `<div class="help">${esc(f.help)}</div>` : ''}</div>`;
+}
+function formFieldsHTML(fields, values = {}) { return `<div class="form-grid">${fields.map(f => fieldHTML(f, values[f.k])).join('')}</div>`; }
+function collectForm(root, fields) {
+  const out = {}, errs = [];
+  fields.forEach(f => {
+    if (f.type === 'section') return;
+    if (f.type === 'checks') { out[f.k] = [...root.querySelectorAll(`input[name="${f.k}"]:checked`)].map(i => i.value); return; }
+    const el = root.querySelector(`[name="${f.k}"]`); if (!el) return;
+    if (f.type === 'bool') { out[f.k] = el.checked; return; }
+    let v = el.value.trim();
+    if (f.type === 'number') v = v === '' ? null : Number(v);
+    else if (v === '') v = null;
+    if (f.type === 'number' && v !== null && !isFinite(v)) errs.push(`${f.label} must be a number`);
+    if (f.required && (v === null || v === '')) errs.push(`${f.label} is required`);
+    out[f.k] = v;
+  });
+  return { vals: out, errs };
+}
+function setField(root, k, v) { const el = root.querySelector(`[name="${k}"]`); if (el) el.value = v ?? ''; }
+
+function closeModal() { $('#modalRoot').innerHTML = ''; }
+function openForm({ title, fields, values = {}, onSave, onDelete, onChange, submit = 'Save', wide, note }) {
+  $('#modalRoot').innerHTML = `<div class="modal-bg"><form class="modal ${wide ? 'wide' : ''}" novalidate>
+    <div class="modal-h"><h3>${esc(title)}</h3><button type="button" class="icon-btn" data-close>✕</button></div>
+    <div class="modal-b"><div class="alert err form-err hidden"></div>${note ? `<div class="alert warn">${note}</div>` : ''}${formFieldsHTML(fields, values)}</div>
+    <div class="modal-f">${onDelete ? '<button type="button" class="btn danger" data-del>Delete</button>' : ''}
+      <div class="r"><button type="button" class="btn" data-close>Cancel</button><button type="submit" class="btn primary">${esc(submit)}</button></div></div>
+  </form></div>`;
+  const form = $('#modalRoot form'), errBox = form.querySelector('.form-err'), btn = form.querySelector('[type=submit]');
+  form.querySelectorAll('[data-close]').forEach(b => b.onclick = closeModal);
+  const showErr = m => { errBox.innerHTML = esc(m); errBox.classList.remove('hidden'); form.querySelector('.modal-b').scrollTop = 0; };
+  if (onChange) form.addEventListener('input', e => { if (e.target.name) onChange(e.target.name, collectForm(form, fields).vals, (k, v) => setField(form, k, v)); });
+  form.onsubmit = async e => {
+    e.preventDefault(); if (btn.disabled) return;
+    const { vals, errs } = collectForm(form, fields);
+    if (errs.length) return showErr(errs.join(' · '));
+    btn.disabled = true; const old = btn.textContent; btn.textContent = 'Saving…';
+    try { await onSave(vals); closeModal(); render(); }
+    catch (err) { showErr(niceErr(err)); btn.disabled = false; btn.textContent = old; }
+  };
+  if (onDelete) form.querySelector('[data-del]').onclick = async ev => {
+    if (!await confirmBox('Delete this record? This cannot be undone.')) return;
+    ev.target.disabled = true;
+    try { await onDelete(); closeModal(); render(); toast('Deleted'); } catch (err) { showErr(niceErr(err)); ev.target.disabled = false; }
+  };
+  if (window.matchMedia('(min-width: 861px)').matches) form.querySelector('input:not([type=checkbox]),select,textarea')?.focus();
+  return form;
+}
+function confirmBox(msg, okText = 'Delete') {
+  return new Promise(res => {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<div class="modal-bg" style="z-index:120"><div class="modal" style="max-width:420px">
+      <div class="modal-b" style="padding-top:22px">${esc(msg)}</div>
+      <div class="modal-f"><div class="r"><button class="btn" data-n>Cancel</button><button class="btn primary" data-y>${esc(okText)}</button></div></div></div></div>`;
+    document.body.appendChild(wrap);
+    const done = v => { wrap.remove(); res(v); };
+    wrap.querySelector('[data-n]').onclick = () => done(false);
+    wrap.querySelector('[data-y]').onclick = () => done(true);
+  });
+}
+async function guarded(btn, fn) {
+  if (btn && btn.disabled) return; if (btn) btn.disabled = true;
+  try { await fn(); } catch (e) { toast(niceErr(e), true); } finally { if (btn && document.body.contains(btn)) btn.disabled = false; }
+}
+
+/* =====================================================================
+   FORMS (domain)
+   ===================================================================== */
+const projOpts = (onlyOpen) => S.projects.filter(p => !onlyOpen || p.status === 'Active' || p.status === 'On Hold')
+  .slice().sort((a, b) => b.project_no.localeCompare(a.project_no)).map(p => ({ v: p.id, l: projLabel(p) }));
+const stageOpts = () => STAGES.map((s, i) => ({ v: i + 1, l: `${i + 1}. ${s}` }));
+const engOpts = (incl) => S.engineers.filter(e => e.active || e.id === incl).map(e => ({ v: e.id, l: e.name }));
+
+function projectFields(isNew) {
+  return [
+    { k:'name', label:'Project name', required:true, full:true, placeholder:'e.g. Filling line automation' },
+    { k:'client_id', label:'Client', type:'select', options:S.clients.map(c => ({ v:c.id, l:c.name })) },
+    ...(isNew ? [{ k:'new_client', label:'…or new client name', help:'Creates the client if not in the list' }] : []),
+    { k:'status', label:'Status', type:'select', options:P_STATUS, blank:false, default:'Active' },
+    { type:'section', label:'Purchase order' },
+    { k:'po_no', label:'PO number' },
+    { k:'po_date', label:'PO date', type:'date', help: isNew ? 'Decides the financial year in the project number' : '' },
+    { k:'po_value', label:'PO value (₹, excl. GST)', type:'number', step:'0.01', min:0 },
+    { k:'platform', label:'Platform', type:'select', options:PLATFORMS },
+    { k:'scope', label:'Scope', type:'checks', options:SCOPES },
+    { type:'section', label:'Schedule' },
+    { k:'start_date', label:'Start date', type:'date' },
+    { k:'target_date', label:'Target completion', type:'date' },
+    { k:'remarks', label:'Remarks', type:'textarea' }
+  ];
+}
+function openProjectForm(p) {
+  const isNew = !p;
+  openForm({
+    title: isNew ? 'New project' : `Edit ${p.project_no}`, fields: projectFields(isNew), values: p || { status:'Active', po_date: today() }, wide:true,
+    onSave: async v => {
+      if (v.start_date && v.target_date && v.target_date < v.start_date) throw new Error('Target date is before start date');
+      if (isNew) {
+        if (v.new_client) {
+          const ex = S.clients.find(c => c.name.toLowerCase() === v.new_client.toLowerCase());
+          v.client_id = ex ? ex.id : (await dbInsert('clients', { name: v.new_client })).id;
+        }
+        delete v.new_client;
+        const { data, error } = await sb.rpc('create_project', { p: v });
+        if (error) throw error;
+        await reload('projects', 'stages');
+        const row = Array.isArray(data) ? data[0] : data;
+        toast(`Created ${row.project_no}`);
+        location.hash = `#/project/${row.id}/overview`;
+      } else {
+        await dbUpdate('projects', p.id, v); toast('Project updated');
+      }
+    },
+    onDelete: isNew ? null : async () => { await dbDelete('projects', p.id, 'stages', 'tasks', 'timeLogs', 'expenses', 'budget', 'milestones', 'receipts'); location.hash = '#/projects'; }
+  });
+}
+function openStageForm(s) {
+  openForm({
+    title: `${s.seq}. ${s.stage}`,
+    fields: [
+      { k:'status', label:'Status', type:'select', options:S_STATUS, blank:false },
+      { type:'section', label:'Planned' },
+      { k:'planned_start', label:'Planned start', type:'date' }, { k:'planned_end', label:'Planned end', type:'date' },
+      { type:'section', label:'Actual' },
+      { k:'actual_start', label:'Actual start', type:'date' }, { k:'actual_end', label:'Actual end', type:'date' },
+      { k:'remarks', label:'Remarks', type:'textarea' }
+    ], values: s,
+    onSave: async v => {
+      if (v.planned_start && v.planned_end && v.planned_end < v.planned_start) throw new Error('Planned end is before planned start');
+      if (v.actual_start && v.actual_end && v.actual_end < v.actual_start) throw new Error('Actual end is before actual start');
+      if (v.status === 'Done' && !v.actual_end) v.actual_end = today();
+      if ((v.status === 'Done' || v.status === 'In Progress') && !v.actual_start) v.actual_start = v.actual_end && v.actual_end < today() ? v.actual_end : today();
+      await dbUpdate('stages', s.id, v); toast('Stage updated');
+    }
+  });
+}
+function openTaskForm(t, projectId) {
+  const isNew = !t;
+  openForm({
+    title: isNew ? 'New task' : 'Edit task',
+    fields: [
+      { k:'project_id', label:'Project', type:'select', options:projOpts(isNew), required:true, full:true },
+      { k:'title', label:'Task', required:true, full:true },
+      { k:'stage_seq', label:'Stage', type:'select', options:stageOpts(), blank:'— None —' },
+      { k:'due_date', label:'Due date', type:'date' },
+      { k:'priority', label:'Priority', type:'select', options:T_PRIORITY, blank:false, default:'Normal' },
+      { k:'status', label:'Status', type:'select', options:T_STATUS, blank:false, default:'Open' },
+      { k:'notes', label:'Notes', type:'textarea' }
+    ],
+    values: t || { project_id: projectId, priority:'Normal', status:'Open' },
+    onSave: async v => {
+      v.stage_seq = v.stage_seq ? Number(v.stage_seq) : null;
+      v.completed_at = v.status === 'Done' ? (t?.completed_at || today()) : null;
+      if (isNew) await dbInsert('tasks', v); else await dbUpdate('tasks', t.id, v);
+      toast(isNew ? 'Task added' : 'Task updated');
+    },
+    onDelete: isNew ? null : () => dbDelete('tasks', t.id)
+  });
+}
+function timeFields(isNew, inclEng) {
+  return [
+    { k:'project_id', label:'Project', type:'select', options:projOpts(isNew), required:true, full:true },
+    { k:'engineer_id', label:'Engineer', type:'select', options:engOpts(inclEng), required:true },
+    { k:'log_date', label:'Date', type:'date', required:true, default: today() },
+    { k:'days', label:'Days', type:'number', step:'0.5', min:0.5, required:true, default:1, help:'0.5 = half day' },
+    { k:'location', label:'Location', type:'select', options:['Office','Site'], blank:false, default:'Office' },
+    { k:'stage_seq', label:'Stage', type:'select', options:stageOpts(), blank:'— None —' },
+    { k:'rate_per_day', label:'Rate / day (₹)', type:'number', step:'0.01', min:0, help:'Filled from engineer master; saved with this entry' },
+    { k:'description', label:'Work done', type:'textarea' }
+  ];
+}
+const timeOnChange = (k, v, set) => { if (k === 'engineer_id') { const e = E(v.engineer_id); if (e) set('rate_per_day', e.rate_per_day); } };
+function validateTime(v) {
+  if (!(v.days > 0) || v.days > 31) throw new Error('Days must be between 0.5 and 31');
+  v.stage_seq = v.stage_seq ? Number(v.stage_seq) : null;
+  if (v.rate_per_day === null) delete v.rate_per_day; // DB snapshots engineer rate
+}
+function openTimeForm(t, projectId) {
+  const isNew = !t;
+  if (!S.engineers.length) { toast('Add an engineer in Masters first', true); return; }
+  openForm({
+    title: isNew ? 'Log time' : 'Edit time entry', fields: timeFields(isNew, t?.engineer_id),
+    values: t || { project_id: projectId, log_date: today(), days: 1, location:'Office' },
+    onChange: timeOnChange,
+    onSave: async v => { validateTime(v); if (isNew) await dbInsert('timeLogs', v); else await dbUpdate('timeLogs', t.id, v); toast('Time saved'); },
+    onDelete: isNew ? null : () => dbDelete('timeLogs', t.id)
+  });
+}
+function expenseFields(isNew) {
+  return [
+    { k:'project_id', label:'Project', type:'select', options:projOpts(isNew), required:true, full:true },
+    { k:'exp_date', label:'Date', type:'date', required:true, default: today() },
+    { k:'category', label:'Category', type:'select', options:EXP_CATS, required:true },
+    { k:'amount', label:'Amount (₹, excl. GST)', type:'number', step:'0.01', min:0, required:true },
+    { k:'vendor', label:'Vendor' },
+    { k:'bill_no', label:'Bill no.' },
+    { k:'description', label:'Description', type:'textarea' }
+  ];
+}
+function openExpenseForm(x, projectId) {
+  const isNew = !x;
+  openForm({
+    title: isNew ? 'Add expense' : 'Edit expense', fields: expenseFields(isNew),
+    values: x || { project_id: projectId, exp_date: today() },
+    onSave: async v => { if (v.amount < 0) throw new Error('Amount cannot be negative'); if (isNew) await dbInsert('expenses', v); else await dbUpdate('expenses', x.id, v); toast('Expense saved'); },
+    onDelete: isNew ? null : () => dbDelete('expenses', x.id)
+  });
+}
+function openMilestoneForm(m, projectId) {
+  const isNew = !m, p = P(m?.project_id || projectId), po = num(p.po_value);
+  const nextSeq = Math.max(0, ...S.milestones.filter(x => x.project_id === p.id).map(x => x.seq)) + 1;
+  openForm({
+    title: isNew ? 'Add payment milestone' : `Edit milestone — ${m.label}`, wide: true,
+    note: po ? null : 'PO value is 0 — enter amounts directly or update the project PO value first.',
+    fields: [
+      { k:'label', label:'Milestone', required:true, placeholder:'e.g. Advance / Against dispatch / After commissioning' },
+      { k:'seq', label:'Order', type:'number', step:1, min:1, default: nextSeq },
+      { k:'pct', label:'% of PO', type:'number', step:'0.01', min:0, help: po ? `PO ${inr(po)} — typing % fills amount` : '' },
+      { k:'amount', label:'Amount (₹, excl. GST)', type:'number', step:'0.01', min:0, help:'Typing amount fills %' },
+      { k:'due_date', label:'Expected date', type:'date' },
+      { k:'gst_pct', label:'GST %', type:'number', step:'0.01', min:0, default:18 },
+      { type:'section', label:'Invoice (fill when raised)' },
+      { k:'invoice_no', label:'Invoice no.' }, { k:'invoice_date', label:'Invoice date', type:'date' },
+      { k:'invoice_amount', label:'Invoice amount (₹, excl. GST)', type:'number', step:'0.01', min:0, help:'Leave blank to use milestone amount' },
+      { k:'notes', label:'Notes', type:'textarea' }
+    ],
+    values: m || { seq: nextSeq, gst_pct: 18 },
+    onChange: (k, v, set) => {
+      if (!po) return;
+      if (k === 'pct' && v.pct !== null) set('amount', Math.round(po * v.pct) / 100);
+      if (k === 'amount' && v.amount !== null) set('pct', Math.round(v.amount / po * 10000) / 100);
+    },
+    onSave: async v => {
+      if (v.amount === null && v.pct !== null && po) v.amount = Math.round(po * v.pct) / 100;
+      if (v.pct === null && v.amount !== null && po) v.pct = Math.round(v.amount / po * 10000) / 100;
+      if (v.amount === null) throw new Error('Enter % or amount');
+      if (v.pct !== null && (v.pct < 0 || v.pct > 100)) throw new Error('% must be between 0 and 100');
+      if (v.invoice_no && v.invoice_amount === null) v.invoice_amount = v.amount;
+      if (v.invoice_no && !v.invoice_date) v.invoice_date = today();
+      v.seq = v.seq || nextSeq; if (v.gst_pct === null) v.gst_pct = 18;
+      if (isNew) await dbInsert('milestones', { ...v, project_id: p.id }); else await dbUpdate('milestones', m.id, v);
+      toast('Milestone saved');
+    },
+    onDelete: isNew ? null : () => dbDelete('milestones', m.id, 'receipts')
+  });
+}
+function openReceiptForm(r, milestoneId) {
+  const isNew = !r, m = S.milestones.find(x => x.id === (r?.milestone_id || milestoneId)), c = msCalc(m);
+  const due = c.invoiced ? c.outstanding : num(m.amount) * (1 + num(m.gst_pct) / 100) - c.received;
+  openForm({
+    title: isNew ? `Record receipt — ${m.label}` : 'Edit receipt',
+    note: isNew && due > 0 ? `Balance on this milestone: <b>${inr(due, 2)}</b> (incl. GST)` : null,
+    fields: [
+      { k:'receipt_date', label:'Date received', type:'date', required:true, default: today() },
+      { k:'amount', label:'Amount received (₹, incl. GST)', type:'number', step:'0.01', min:0, required:true },
+      { k:'mode', label:'Mode', type:'select', options:PAY_MODES },
+      { k:'reference', label:'UTR / Cheque no.' },
+      { k:'notes', label:'Notes', type:'textarea' }
+    ],
+    values: r || { receipt_date: today(), amount: due > 0 ? Math.round(due * 100) / 100 : null, mode:'NEFT/RTGS' },
+    onSave: async v => { if (!(v.amount > 0)) throw new Error('Amount must be more than 0');
+      if (isNew) await dbInsert('receipts', { ...v, milestone_id: m.id, project_id: m.project_id }); else await dbUpdate('receipts', r.id, v); toast('Receipt saved'); },
+    onDelete: isNew ? null : () => dbDelete('receipts', r.id)
+  });
+}
+function openBudgetForm(p) {
+  const cur = {}; S.budget.filter(b => b.project_id === p.id).forEach(b => cur['b_' + b.category] = b.amount);
+  openForm({
+    title: `Budget — ${p.project_no}`, wide: true,
+    fields: BUDGET_CATS.map(c => ({ k: 'b_' + c, label: c + ' (₹)', type: 'number', step: '0.01', min: 0 })),
+    values: cur,
+    onSave: async v => {
+      const rows = BUDGET_CATS.map(c => ({ project_id: p.id, category: c, amount: num(v['b_' + c]) }));
+      const { error } = await sb.from('project_budget').upsert(rows, { onConflict: 'project_id,category' });
+      if (error) throw error; await reload('budget'); toast('Budget saved');
+    }
+  });
+}
+function openClientForm(c) {
+  const isNew = !c;
+  openForm({
+    title: isNew ? 'New client' : 'Edit client',
+    fields: [
+      { k:'name', label:'Client name', required:true, full:true }, { k:'location', label:'Location' }, { k:'gstin', label:'GSTIN' },
+      { k:'contact_person', label:'Contact person' }, { k:'phone', label:'Phone', type:'tel' }, { k:'email', label:'Email', type:'email' },
+      { k:'notes', label:'Notes', type:'textarea' }
+    ], values: c || {},
+    onSave: async v => { if (isNew) await dbInsert('clients', v); else await dbUpdate('clients', c.id, v); toast('Client saved'); },
+    onDelete: isNew ? null : () => dbDelete('clients', c.id)
+  });
+}
+function openEngineerForm(e) {
+  const isNew = !e;
+  openForm({
+    title: isNew ? 'New engineer' : 'Edit engineer',
+    note: isNew ? null : 'Changing the rate affects new time entries only. Past entries keep the rate they were logged with.',
+    fields: [
+      { k:'name', label:'Name', required:true }, { k:'rate_per_day', label:'Cost rate per day (₹)', type:'number', step:'0.01', min:0, required:true },
+      { k:'active', label:'Active', type:'bool', text:'Available for new entries', default:true }
+    ], values: e || { active: true },
+    onSave: async v => { if (isNew) await dbInsert('engineers', v); else await dbUpdate('engineers', e.id, v); toast('Engineer saved'); },
+    onDelete: isNew ? null : () => dbDelete('engineers', e.id)
+  });
+}
+
+/* =====================================================================
+   PAGES
+   ===================================================================== */
+function pageHead(title, sub, actions = '') {
+  return `<div class="page-head"><div><h2>${title}</h2>${sub ? `<div class="sub">${sub}</div>` : ''}</div><div class="actions">${actions}</div></div>`;
+}
+const kpi = (l, v, s = '', cls = '') => `<div class="kpi ${cls}"><div class="l">${l}</div><div class="v">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
+const emptyRow = (cols, msg) => `<tr><td colspan="${cols}" class="empty">${msg}</td></tr>`;
+
+/* ---------- Dashboard ---------- */
+function pgDashboard() {
+  const t = today(), in14 = addDays(t, 14);
+  const active = S.projects.filter(p => p.status === 'Active');
+  const calcs = active.map(p => ({ p, c: projCalc(p) }));
+  const activeIds = new Set(active.map(p => p.id));
+  const openSt = S.stages.filter(s => activeIds.has(s.project_id) && s.status !== 'Done' && s.status !== 'Skipped');
+  const odStages = openSt.filter(s => s.planned_end && s.planned_end < t);
+  const openTasks = S.tasks.filter(x => x.status !== 'Done' && (P(x.project_id)?.status !== 'Cancelled'));
+  const odTasks = openTasks.filter(x => x.due_date && x.due_date < t);
+  const allMs = S.milestones.map(m => ({ m, c: msCalc(m) }));
+  const outstanding = sum(allMs, x => x.c.outstanding);
+  const odMs = allMs.filter(x => x.c.overdue && P(x.m.project_id)?.status !== 'Cancelled');
+  const po = sum(calcs, x => x.c.po), cost = sum(calcs, x => x.c.cost);
+  const doneProj = S.projects.filter(p => p.status === 'Completed').map(p => projCalc(p));
+  const donePo = sum(doneProj, 'po'), doneMargin = sum(doneProj, 'margin');
+  const pipe = STAGES.map((s, i) => calcs.filter(x => x.c.cur && x.c.cur.seq === i + 1).length);
+
+  const overdue = [
+    ...odStages.map(s => ({ d: s.planned_end, html: `<div><b>${esc(s.stage)}</b> <span class="muted">stage</span><div class="small muted">${esc(projLabel(P(s.project_id)))}</div></div>`, pid: s.project_id, tab: 'stages' })),
+    ...odTasks.map(x => ({ d: x.due_date, html: `<div><b>${esc(x.title)}</b> <span class="muted">task</span><div class="small muted">${esc(projLabel(P(x.project_id)))}</div></div>`, pid: x.project_id, tab: 'tasks' })),
+    ...odMs.map(x => ({ d: x.m.due_date, html: `<div><b>${esc(x.m.label)}</b> <span class="muted">payment</span><div class="small muted">${esc(projLabel(P(x.m.project_id)))}</div></div>`, pid: x.m.project_id, tab: 'payments' }))
+  ].sort((a, b) => a.d.localeCompare(b.d));
+  const upcoming = [
+    ...openSt.filter(s => s.planned_end && s.planned_end >= t && s.planned_end <= in14).map(s => ({ d: s.planned_end, html: `<div><b>${esc(s.stage)}</b> <span class="muted">stage ends</span><div class="small muted">${esc(projLabel(P(s.project_id)))}</div></div>`, pid: s.project_id, tab: 'stages' })),
+    ...openTasks.filter(x => x.due_date && x.due_date >= t && x.due_date <= in14).map(x => ({ d: x.due_date, html: `<div><b>${esc(x.title)}</b> <span class="muted">task</span><div class="small muted">${esc(projLabel(P(x.project_id)))}</div></div>`, pid: x.project_id, tab: 'tasks' })),
+    ...allMs.filter(x => x.c.status !== 'Paid' && x.m.due_date && x.m.due_date >= t && x.m.due_date <= in14).map(x => ({ d: x.m.due_date, html: `<div><b>${esc(x.m.label)}</b> <span class="muted">payment expected</span><div class="small muted">${esc(projLabel(P(x.m.project_id)))}</div></div>`, pid: x.m.project_id, tab: 'payments' }))
+  ].sort((a, b) => a.d.localeCompare(b.d));
+  const li = (x, late) => `<div class="list-item click" data-act="go" data-href="#/project/${x.pid}/${x.tab}" style="cursor:pointer">${x.html}<span class="badge ${late ? 'b-red' : 'b-blue'}">${fd(x.d)}</span></div>`;
+
+  return pageHead('Dashboard', new Date().toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric', timeZone:'Asia/Kolkata' }),
+    `<button class="btn" data-act="newTime">＋ Log time</button><button class="btn primary" data-act="newProject">＋ New project</button>`) +
+  `<div class="kpis">
+    ${kpi('Active projects', active.length, `${S.projects.filter(p => p.status === 'On Hold').length} on hold`)}
+    ${kpi('Active PO value', inr(po), 'excl. GST')}
+    ${kpi('Cost to date', inr(cost), po ? pct(cost / po * 100) + ' of PO' : '')}
+    ${kpi('Outstanding', inr(outstanding), `${odMs.length} payment(s) overdue`, odMs.length ? 'warn' : '')}
+    ${kpi('Overdue items', odStages.length + odTasks.length, `${odStages.length} stages · ${odTasks.length} tasks`, odStages.length + odTasks.length ? 'warn' : 'good')}
+    ${kpi('Completed margin', donePo ? pct(doneMargin / donePo * 100) : '—', donePo ? inr(doneMargin) + ' on ' + doneProj.length + ' project(s)' : 'No completed projects yet')}
+  </div>
+  <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Active projects by current stage</h3></div><div class="card-b">
+    <div class="pipeline">${STAGES.map((s, i) => `<div class="pipe ${pipe[i] ? 'on' : ''}"><div class="n">${pipe[i]}</div><div class="t">${esc(s)}</div></div>`).join('')}</div>
+  </div></div>
+  <div class="grid g2" style="margin-bottom:14px">
+    <div class="card"><div class="card-h"><h3>Overdue</h3>${badge(overdue.length, overdue.length ? 'b-red' : 'b-green')}</div>
+      ${overdue.length ? overdue.slice(0, 12).map(x => li(x, true)).join('') : '<div class="empty">Nothing overdue 👍</div>'}</div>
+    <div class="card"><div class="card-h"><h3>Next 14 days</h3>${badge(upcoming.length, 'b-blue')}</div>
+      ${upcoming.length ? upcoming.slice(0, 12).map(x => li(x, false)).join('') : '<div class="empty">Nothing due in the next two weeks</div>'}</div>
+  </div>
+  <div class="card"><div class="card-h"><h3>Active projects</h3><a href="#/projects" class="small">All projects →</a></div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Project</th><th>Client</th><th>Current stage</th><th>Progress</th><th>Target</th><th class="num">PO value</th><th class="num">Cost</th><th class="num">Margin</th></tr></thead><tbody>
+    ${calcs.length ? calcs.sort((a, b) => b.p.project_no.localeCompare(a.p.project_no)).map(({ p, c }) => `<tr class="click" data-act="go" data-href="#/project/${p.id}/overview">
+      <td><b>${esc(p.project_no)}</b><div class="small muted">${esc(p.name)}</div></td><td>${esc(clientName(p.client_id))}</td>
+      <td>${c.cur ? esc(c.cur.stage) : '—'} ${c.lateStage ? badge('Late', 'b-red') : ''}</td><td>${progBar(c.progress)}</td>
+      <td class="nowrap">${fd(p.target_date)}</td><td class="num">${inr(c.po)}</td><td class="num">${inr(c.cost)}</td>
+      <td class="num">${badge(pct(c.marginPct), marginCls(c.marginPct))}</td></tr>`).join('') : emptyRow(8, 'No active projects. <a href="#" data-act="newProject">Create the first one</a>.')}
+    </tbody></table></div></div>`;
+}
+
+/* ---------- Projects ---------- */
+function projectRows() {
+  const q = UI.projSearch.toLowerCase();
+  const rows = S.projects.filter(p => (!UI.projStatus || p.status === UI.projStatus) &&
+    (!q || [p.project_no, p.name, clientName(p.client_id), p.po_no, p.platform, (p.scope || []).join(' ')].join(' ').toLowerCase().includes(q)))
+    .sort((a, b) => b.project_no.localeCompare(a.project_no));
+  if (!rows.length) return emptyRow(9, S.projects.length ? 'No projects match the filter' : 'No projects yet');
+  return rows.map(p => { const c = projCalc(p); return `<tr class="click" data-act="go" data-href="#/project/${p.id}/overview">
+    <td class="nowrap"><b>${esc(p.project_no)}</b></td><td>${esc(p.name)}<div class="small muted">${esc((p.scope || []).join(' · '))}${p.platform ? ' — ' + esc(p.platform) : ''}</div></td>
+    <td>${esc(clientName(p.client_id))}</td><td>${pBadge(p.status)}</td><td>${c.cur ? esc(c.cur.stage) : (p.status === 'Completed' ? '—' : 'All done')} ${c.lateStage && p.status === 'Active' ? badge('Late', 'b-red') : ''}</td>
+    <td>${progBar(c.progress)}</td><td class="nowrap">${fd(p.target_date)}</td><td class="num">${inr(c.po)}</td><td class="num">${badge(pct(c.marginPct), marginCls(c.marginPct))}</td></tr>`; }).join('');
+}
+function pgProjects() {
+  return pageHead('Projects', `${S.projects.length} total`, `<button class="btn primary" data-act="newProject">＋ New project</button>`) +
+  `<div class="filters"><input type="search" id="projSearch" placeholder="Search number, name, client, PO, platform…" value="${esc(UI.projSearch)}">
+    <select id="projStatus">${opt(P_STATUS, UI.projStatus, 'All statuses')}</select></div>
+  <div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>No.</th><th>Project</th><th>Client</th><th>Status</th><th>Current stage</th><th>Progress</th><th>Target</th><th class="num">PO value</th><th class="num">Margin</th></tr></thead>
+  <tbody id="projBody">${projectRows()}</tbody></table></div></div>`;
+}
+
+/* ---------- Project detail ---------- */
+const TABS = [['overview','Overview'],['stages','Stages'],['tasks','Tasks'],['time','Time'],['expenses','Expenses'],['payments','Payments'],['costing','Costing']];
+function pgProject(id, tab = 'overview') {
+  const p = P(id);
+  if (!p) return pageHead('Project not found') + '<p><a href="#/projects">← Back to projects</a></p>';
+  const c = projCalc(p);
+  const body = { overview: tabOverview, stages: tabStages, tasks: tabTasks, time: tabTime, expenses: tabExpenses, payments: tabPayments, costing: tabCosting }[tab] || tabOverview;
+  return `<div class="small" style="margin-bottom:6px"><a href="#/projects">← Projects</a></div>` +
+    pageHead(`${esc(p.project_no)} <span style="font-weight:500">· ${esc(p.name)}</span>`, `${esc(clientName(p.client_id))} &nbsp; ${pBadge(p.status)}`,
+      `<button class="btn" data-act="editProject" data-id="${p.id}">Edit</button>`) +
+    `<div class="kpis">
+      ${kpi('PO value', inr(c.po), p.po_no ? 'PO ' + esc(p.po_no) : 'excl. GST')}
+      ${kpi('Progress', Math.round(c.progress) + '%', c.cur ? 'Now: ' + esc(c.cur.stage) : 'All stages done')}
+      ${kpi('Cost to date', inr(c.cost), `${inr(c.labour)} labour · ${inr(c.exp)} other`)}
+      ${kpi('Margin', inr(c.margin), pct(c.marginPct), c.marginPct !== null && c.marginPct < 0 ? 'warn' : '')}
+      ${kpi('Outstanding', inr(c.outstanding), `${inr(c.received)} received`, c.outstanding > 0 && c.ms.some(m => msCalc(m).overdue) ? 'warn' : '')}
+    </div>
+    <div class="tabs">${TABS.map(([k, l]) => `<a href="#/project/${p.id}/${k}" class="${k === tab ? 'active' : ''}">${l}</a>`).join('')}</div>` + body(p, c);
+}
+function tabOverview(p, c) {
+  const cl = C(p.client_id);
+  const openTasks = S.tasks.filter(t => t.project_id === p.id && t.status !== 'Done');
+  return `<div class="grid g2">
+    <div class="card"><div class="card-h"><h3>Project details</h3></div><div class="card-b"><dl class="dl">
+      <dt>Project no.</dt><dd><b>${esc(p.project_no)}</b></dd>
+      <dt>Client</dt><dd>${esc(cl?.name || '—')}${cl?.location ? ', ' + esc(cl.location) : ''}</dd>
+      <dt>PO</dt><dd>${esc(p.po_no || '—')} &nbsp;<span class="muted">${fd(p.po_date)}</span></dd>
+      <dt>PO value</dt><dd>${inr(p.po_value)} <span class="muted small">excl. GST</span></dd>
+      <dt>Scope</dt><dd>${(p.scope || []).map(s => badge(s, 'b-navy')).join(' ') || '—'}</dd>
+      <dt>Platform</dt><dd>${esc(p.platform || '—')}</dd>
+      <dt>Start → Target</dt><dd>${fd(p.start_date)} → ${fd(p.target_date)}${p.target_date && p.status === 'Active' ? ` <span class="muted small">(${daysBetween(today(), p.target_date) >= 0 ? daysBetween(today(), p.target_date) + ' days left' : Math.abs(daysBetween(today(), p.target_date)) + ' days late'})</span>` : ''}</dd>
+      <dt>Remarks</dt><dd style="white-space:pre-wrap">${esc(p.remarks || '—')}</dd>
+    </dl></div></div>
+    <div class="grid">
+      <div class="card"><div class="card-h"><h3>Client contact</h3></div><div class="card-b"><dl class="dl">
+        <dt>Contact</dt><dd>${esc(cl?.contact_person || '—')}</dd>
+        <dt>Phone</dt><dd>${cl?.phone ? `<a href="tel:${esc(cl.phone)}">${esc(cl.phone)}</a>` : '—'}</dd>
+        <dt>Email</dt><dd>${cl?.email ? `<a href="mailto:${esc(cl.email)}">${esc(cl.email)}</a>` : '—'}</dd>
+        <dt>GSTIN</dt><dd>${esc(cl?.gstin || '—')}</dd></dl></div></div>
+      <div class="card"><div class="card-h"><h3>Open tasks</h3><button class="btn sm" data-act="newTask" data-pid="${p.id}">＋ Task</button></div>
+        ${openTasks.length ? openTasks.slice(0, 6).map(t => `<div class="list-item"><div>${esc(t.title)} ${t.priority === 'High' ? prBadge('High') : ''}</div><span class="small ${t.due_date && t.due_date < today() ? '' : 'muted'}">${t.due_date ? (t.due_date < today() ? badge(fd(t.due_date), 'b-red') : fd(t.due_date)) : ''}</span></div>`).join('') : '<div class="empty">No open tasks</div>'}
+      </div>
+    </div></div>`;
+}
+function timelineHTML(st) {
+  const ds = [];
+  st.forEach(s => ['planned_start','planned_end','actual_start','actual_end'].forEach(k => s[k] && ds.push(s[k])));
+  if (ds.length < 2) return '<div class="muted small">Add planned dates (or use Auto-plan) to see the timeline.</div>';
+  const t = today();
+  ds.sort(); let min = ds[0], max = ds[ds.length - 1];
+  if (st.some(s => s.actual_start && !s.actual_end) && t > max) max = t;
+  const span = Math.max(daysBetween(min, max) + 1, 1);
+  const pos = d => (daysBetween(min, d) / span * 100);
+  const w = (a, b) => Math.max((daysBetween(a, b) + 1) / span * 100, 0.8);
+  const todayLine = t >= min && t <= max ? `<div class="tl-today" style="left:${pos(t)}%" title="Today"></div>` : '';
+  return `<div class="tl">${st.map(s => {
+    const plan = s.planned_start && s.planned_end ? `<div class="tl-plan" style="left:${pos(s.planned_start)}%;width:${w(s.planned_start, s.planned_end)}%" title="Planned ${fd(s.planned_start)} → ${fd(s.planned_end)}"></div>` : '';
+    const aEnd = s.actual_end || (s.actual_start ? (t < s.actual_start ? s.actual_start : t) : null);
+    const act = s.actual_start ? `<div class="tl-act ${s.actual_end ? 'done' : ''}" style="left:${pos(s.actual_start)}%;width:${w(s.actual_start, aEnd)}%" title="Actual ${fd(s.actual_start)} → ${s.actual_end ? fd(s.actual_end) : 'ongoing'}"></div>` : '';
+    return `<div class="tl-row"><div class="lbl" title="${esc(s.stage)}">${s.seq}. ${esc(s.stage)}</div><div class="tl-track">${plan}${act}${todayLine}</div></div>`;
+  }).join('')}</div>
+  <div class="tl-legend"><span><i style="background:#C9D3E3"></i>Planned</span><span><i style="background:var(--orange)"></i>In progress</span><span><i style="background:var(--green)"></i>Done</span><span><i style="background:var(--red);width:3px"></i>Today</span><span>${fd(min)} → ${fd(max)}</span></div>`;
+}
+function tabStages(p, c) {
+  const t = today();
+  return `<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Timeline</h3>
+      <button class="btn sm" data-act="autoPlan" data-id="${p.id}" title="Spread planned dates between start and target date">Auto-plan dates</button></div>
+    <div class="card-b">${timelineHTML(c.st)}</div></div>
+  <div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>Stage</th><th>Planned</th><th>Actual</th><th>Status</th><th>Remarks</th><th></th></tr></thead><tbody>
+  ${c.st.map(s => { const late = s.status !== 'Done' && s.status !== 'Skipped' && s.planned_end && s.planned_end < t;
+    const slip = s.actual_end && s.planned_end ? daysBetween(s.planned_end, s.actual_end) : null;
+    return `<tr><td>${s.seq}</td><td><b>${esc(s.stage)}</b></td>
+    <td class="nowrap">${fd(s.planned_start)} → ${fd(s.planned_end)}</td>
+    <td class="nowrap">${fd(s.actual_start)} → ${s.actual_start && !s.actual_end ? '<i class="muted">ongoing</i>' : fd(s.actual_end)}${slip ? ` <span class="small ${slip > 0 ? '' : 'muted'}" style="color:${slip > 0 ? 'var(--red)' : 'var(--green)'}">${slip > 0 ? '+' : ''}${slip}d</span>` : ''}</td>
+    <td>${sBadge(s.status)} ${late ? badge('Late', 'b-red') : ''}</td><td class="small muted" style="max-width:220px">${esc(s.remarks || '')}</td>
+    <td><div class="row-actions">
+      ${s.status === 'Not Started' ? `<button class="btn sm" data-act="stageStart" data-id="${s.id}">Start</button>` : ''}
+      ${s.status === 'In Progress' || s.status === 'Not Started' ? `<button class="btn sm" data-act="stageDone" data-id="${s.id}">✓ Done</button>` : ''}
+      <button class="icon-btn" data-act="editStage" data-id="${s.id}" title="Edit">✎</button></div></td></tr>`; }).join('')}
+  </tbody></table></div></div>`;
+}
+function taskTable(tasks, showProject) {
+  const t = today();
+  const rows = tasks.slice().sort((a, b) => (a.status === 'Done') - (b.status === 'Done') || (a.due_date || '9999').localeCompare(b.due_date || '9999'));
+  return `<div class="tbl-wrap"><table class="tbl"><thead><tr><th style="width:36px"></th><th>Task</th>${showProject ? '<th>Project</th>' : ''}<th>Stage</th><th>Due</th><th>Priority</th><th>Status</th><th></th></tr></thead><tbody>
+  ${rows.length ? rows.map(x => `<tr class="${x.status === 'Done' ? 'done-row' : ''}">
+    <td><input type="checkbox" class="chk" data-act="toggleTask" data-id="${x.id}" ${x.status === 'Done' ? 'checked' : ''} title="Mark done"></td>
+    <td><span class="t-title">${esc(x.title)}</span>${x.notes ? `<div class="small muted">${esc(x.notes)}</div>` : ''}</td>
+    ${showProject ? `<td><a href="#/project/${x.project_id}/tasks">${esc(P(x.project_id)?.project_no || '')}</a><div class="small muted">${esc(P(x.project_id)?.name || '')}</div></td>` : ''}
+    <td class="small">${esc(stageName(x.stage_seq))}</td>
+    <td class="nowrap">${x.due_date ? (x.status !== 'Done' && x.due_date < t ? badge(fd(x.due_date), 'b-red') : fd(x.due_date)) : '—'}</td>
+    <td>${prBadge(x.priority)}</td><td>${tBadge(x.status)}</td>
+    <td><div class="row-actions"><button class="icon-btn" data-act="editTask" data-id="${x.id}" title="Edit">✎</button></div></td></tr>`).join('') : emptyRow(showProject ? 8 : 7, 'No tasks')}
+  </tbody></table></div>`;
+}
+function tabTasks(p) {
+  const tasks = S.tasks.filter(t => t.project_id === p.id);
+  return `<div class="card"><div class="card-h"><h3>Tasks <span class="muted small">${tasks.filter(t => t.status !== 'Done').length} open</span></h3><button class="btn primary sm" data-act="newTask" data-pid="${p.id}">＋ Task</button></div>${taskTable(tasks, false)}</div>`;
+}
+function tabTime(p, c) {
+  const rows = c.tl.slice().sort((a, b) => b.log_date.localeCompare(a.log_date));
+  const byEng = {}; c.tl.forEach(t => { const k = E(t.engineer_id)?.name || '—'; byEng[k] = byEng[k] || { d: 0, c: 0 }; byEng[k].d += num(t.days); byEng[k].c += num(t.cost); });
+  const site = sum(c.tl.filter(t => t.location === 'Site'), 'days');
+  return `<div class="kpis">${kpi('Total days', c.days, `${site} on site · ${c.days - site} office`)}${kpi('Labour cost', inr(c.labour))}
+    ${Object.entries(byEng).map(([n, v]) => kpi(esc(n), v.d + ' d', inr(v.c))).join('')}</div>
+  <div class="card"><div class="card-h"><h3>Time log</h3><button class="btn primary sm" data-act="newTime" data-pid="${p.id}">＋ Log time</button></div>
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Engineer</th><th class="num">Days</th><th>Where</th><th>Stage</th><th>Work done</th><th class="num">Rate/day</th><th class="num">Cost</th><th></th></tr></thead><tbody>
+  ${rows.length ? rows.map(t => `<tr><td class="nowrap">${fd(t.log_date)}</td><td>${esc(E(t.engineer_id)?.name || '—')}</td><td class="num">${num(t.days)}</td>
+    <td>${t.location === 'Site' ? badge('Site', 'b-orange') : badge('Office')}</td><td class="small">${esc(stageName(t.stage_seq))}</td><td class="small">${esc(t.description || '')}</td>
+    <td class="num">${inr(t.rate_per_day)}</td><td class="num">${inr(t.cost)}</td><td><div class="row-actions"><button class="icon-btn" data-act="editTime" data-id="${t.id}">✎</button></div></td></tr>`).join('') : emptyRow(9, 'No time logged yet')}
+  </tbody>${rows.length ? `<tfoot><tr><td colspan="2">Total</td><td class="num">${c.days}</td><td colspan="4"></td><td class="num">${inr(c.labour)}</td><td></td></tr></tfoot>` : ''}</table></div></div>`;
+}
+function tabExpenses(p, c) {
+  const rows = c.ex.slice().sort((a, b) => b.exp_date.localeCompare(a.exp_date));
+  const byCat = EXP_CATS.map(k => [k, sum(c.ex.filter(e => e.category === k), 'amount')]).filter(x => x[1] > 0);
+  return `${byCat.length ? `<div class="kpis">${byCat.map(([k, v]) => kpi(esc(k), inr(v))).join('')}</div>` : ''}
+  <div class="card"><div class="card-h"><h3>Expenses <span class="muted small">excl. GST</span></h3><button class="btn primary sm" data-act="newExpense" data-pid="${p.id}">＋ Expense</button></div>
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Category</th><th>Vendor</th><th>Bill no.</th><th>Description</th><th class="num">Amount</th><th></th></tr></thead><tbody>
+  ${rows.length ? rows.map(e => `<tr><td class="nowrap">${fd(e.exp_date)}</td><td>${esc(e.category)}</td><td>${esc(e.vendor || '')}</td><td>${esc(e.bill_no || '')}</td>
+    <td class="small">${esc(e.description || '')}</td><td class="num">${inr(e.amount, 2)}</td><td><div class="row-actions"><button class="icon-btn" data-act="editExpense" data-id="${e.id}">✎</button></div></td></tr>`).join('') : emptyRow(7, 'No expenses yet')}
+  </tbody>${rows.length ? `<tfoot><tr><td colspan="5">Total</td><td class="num">${inr(c.exp, 2)}</td><td></td></tr></tfoot>` : ''}</table></div></div>`;
+}
+function tabPayments(p, c) {
+  const ms = c.ms.slice().sort((a, b) => a.seq - b.seq);
+  const rc = S.receipts.filter(r => r.project_id === p.id).sort((a, b) => b.receipt_date.localeCompare(a.receipt_date));
+  const diff = Math.round((c.msPct - 100) * 100) / 100;
+  const amtDiff = Math.round((c.msAmt - c.po) * 100) / 100;
+  let alert = '';
+  if (ms.length && c.po) alert = Math.abs(amtDiff) < 1
+    ? `<div class="alert ok">Milestones cover 100% of the PO value (${inr(c.po)}).</div>`
+    : `<div class="alert warn">Milestones total <b>${inr(c.msAmt)}</b> (${pct(c.msPct)}) — ${amtDiff < 0 ? inr(-amtDiff) + ' of the PO is not yet planned' : inr(amtDiff) + ' more than the PO value'}.</div>`;
+  else if (!ms.length) alert = `<div class="alert warn">No payment milestones yet. Add them as per this PO's payment terms.</div>`;
+  return `<div class="kpis">${kpi('PO value', inr(c.po), 'excl. GST')}${kpi('Planned in milestones', pct(c.msPct), inr(c.msAmt))}${kpi('Invoiced', inr(c.invoicedGross), 'incl. GST')}
+    ${kpi('Received', inr(c.received), 'incl. GST', 'good')}${kpi('Outstanding', inr(c.outstanding), 'invoiced, not received', c.outstanding > 0 ? 'warn' : '')}</div>${alert}
+  <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Payment milestones</h3><button class="btn primary sm" data-act="newMilestone" data-pid="${p.id}">＋ Milestone</button></div>
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>Milestone</th><th class="num">%</th><th class="num">Amount</th><th>Expected</th><th>Invoice</th><th class="num">Invoice (incl. GST)</th><th class="num">Received</th><th class="num">Balance</th><th>Status</th><th></th></tr></thead><tbody>
+  ${ms.length ? ms.map(m => { const x = msCalc(m); return `<tr><td>${m.seq}</td><td><b>${esc(m.label)}</b>${m.notes ? `<div class="small muted">${esc(m.notes)}</div>` : ''}</td>
+    <td class="num">${m.pct !== null && m.pct !== undefined ? num(m.pct) + '%' : '—'}</td><td class="num">${inr(m.amount)}</td><td class="nowrap">${fd(m.due_date)}</td>
+    <td class="nowrap">${m.invoice_no ? `${esc(m.invoice_no)}<div class="small muted">${fd(m.invoice_date)}</div>` : '<span class="muted">—</span>'}</td>
+    <td class="num">${x.invoiced ? inr(x.gross) : '—'}</td><td class="num">${x.received ? inr(x.received) : '—'}</td><td class="num">${x.invoiced ? inr(x.outstanding) : '—'}</td>
+    <td>${mBadge(x)}</td><td><div class="row-actions stack">${!x.invoiced ? `<button class="btn sm" data-act="editMilestone" data-id="${m.id}" data-focus="invoice_no">Invoice</button>` : ''}
+      ${x.status !== 'Paid' ? `<button class="btn sm" data-act="newReceipt" data-id="${m.id}">＋ Receipt</button>` : ''}
+      <button class="icon-btn" data-act="editMilestone" data-id="${m.id}">✎</button></div></td></tr>`; }).join('') : emptyRow(11, 'No milestones')}
+  </tbody>${ms.length ? `<tfoot><tr><td colspan="2">Total</td><td class="num">${pct(c.msPct)}</td><td class="num">${inr(c.msAmt)}</td><td colspan="2"></td><td class="num">${inr(c.invoicedGross)}</td><td class="num">${inr(c.received)}</td><td class="num">${inr(c.outstanding)}</td><td colspan="2"></td></tr></tfoot>` : ''}</table></div></div>
+  <div class="card"><div class="card-h"><h3>Receipts</h3></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Milestone</th><th>Mode</th><th>Reference</th><th class="num">Amount</th><th></th></tr></thead><tbody>
+  ${rc.length ? rc.map(r => `<tr><td class="nowrap">${fd(r.receipt_date)}</td><td>${esc(S.milestones.find(m => m.id === r.milestone_id)?.label || '—')}</td><td>${esc(r.mode || '')}</td><td>${esc(r.reference || '')}</td>
+    <td class="num">${inr(r.amount, 2)}</td><td><div class="row-actions"><button class="icon-btn" data-act="editReceipt" data-id="${r.id}">✎</button></div></td></tr>`).join('') : emptyRow(6, 'No receipts yet')}
+  </tbody></table></div></div>`;
+}
+function tabCosting(p, c) {
+  const bud = {}; S.budget.filter(b => b.project_id === p.id).forEach(b => bud[b.category] = num(b.amount));
+  const act = { Labour: c.labour }; EXP_CATS.forEach(k => act[k] = sum(c.ex.filter(e => e.category === k), 'amount'));
+  const totB = sum(BUDGET_CATS, k => bud[k] || 0), totA = c.cost;
+  const hasBud = totB > 0;
+  const budMargin = c.po - totB;
+  return `<div class="kpis">${kpi('PO value', inr(c.po), 'excl. GST')}${kpi('Labour', inr(c.labour), c.days + ' engineer-days')}${kpi('Other costs', inr(c.exp))}
+    ${kpi('Margin', inr(c.margin), pct(c.marginPct) + ' of PO', c.margin < 0 ? 'warn' : 'good')}
+    ${hasBud ? kpi('Budgeted margin', inr(budMargin), c.po ? pct(budMargin / c.po * 100) : '') : ''}</div>
+  <div class="card"><div class="card-h"><h3>Budget vs actual</h3><button class="btn sm" data-act="editBudget" data-id="${p.id}">${hasBud ? 'Edit budget' : 'Set budget'}</button></div>
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Category</th><th class="num">Budget</th><th class="num">Actual</th><th class="num">Variance</th><th style="width:28%">Used</th></tr></thead><tbody>
+  ${BUDGET_CATS.filter(k => bud[k] || act[k]).map(k => { const b = bud[k] || 0, a = act[k] || 0, v = b - a, u = b ? a / b * 100 : (a ? 100 : 0);
+    return `<tr><td>${esc(k)}</td><td class="num">${b ? inr(b) : '—'}</td><td class="num">${inr(a)}</td>
+    <td class="num" style="color:${v < 0 ? 'var(--red)' : 'inherit'}">${b ? (v < 0 ? '−' : '') + inr(Math.abs(v)) : '—'}</td>
+    <td>${b ? `<div class="prog"><i style="width:${Math.min(u, 100)}%;background:${u > 100 ? 'var(--red)' : u > 85 ? 'var(--amber)' : 'var(--green)'}"></i></div><div class="small muted">${pct(u)}</div>` : '<span class="small muted">No budget</span>'}</td></tr>`; }).join('') || emptyRow(5, 'No budget or costs yet')}
+  </tbody><tfoot><tr><td>Total cost</td><td class="num">${hasBud ? inr(totB) : '—'}</td><td class="num">${inr(totA)}</td><td class="num" style="color:${totB - totA < 0 ? 'var(--red)' : 'inherit'}">${hasBud ? (totB - totA < 0 ? '−' : '') + inr(Math.abs(totB - totA)) : '—'}</td><td></td></tr>
+  <tr><td>Margin (PO − cost)</td><td class="num">${hasBud ? inr(budMargin) : '—'}</td><td class="num">${inr(c.margin)}</td><td colspan="2">${badge(pct(c.marginPct), marginCls(c.marginPct))}</td></tr></tfoot></table></div></div>`;
+}
+
+/* ---------- Tasks (all) ---------- */
+function pgTasks() {
+  let tasks = S.tasks.filter(t => P(t.project_id));
+  if (UI.taskProject) tasks = tasks.filter(t => t.project_id === UI.taskProject);
+  if (UI.taskStatus === 'open') tasks = tasks.filter(t => t.status !== 'Done');
+  else if (UI.taskStatus === 'overdue') tasks = tasks.filter(t => t.status !== 'Done' && t.due_date && t.due_date < today());
+  else if (UI.taskStatus === 'done') tasks = tasks.filter(t => t.status === 'Done');
+  return pageHead('Tasks', `${S.tasks.filter(t => t.status !== 'Done').length} open across all projects`, `<button class="btn primary" data-act="newTask">＋ Task</button>`) +
+  `<div class="filters"><select id="taskProject">${opt(projOpts(false), UI.taskProject, 'All projects')}</select>
+    <select id="taskStatus">${opt([{ v:'open', l:'Open' }, { v:'overdue', l:'Overdue' }, { v:'done', l:'Done' }, { v:'all', l:'All' }], UI.taskStatus)}</select></div>
+  <div class="card">${taskTable(tasks, true)}</div>`;
+}
+
+/* ---------- Quick entry ---------- */
+let QE = { time: null, exp: null };
+function pgEntry() {
+  QE.time = timeFields(true).map(f => f.k === 'description' ? { ...f, type:'text' } : f);
+  QE.exp = expenseFields(true).map(f => f.k === 'description' ? { ...f, type:'text' } : f);
+  const last = JSON.parse(sessionStorageGet('qe_last') || '{}');
+  const recent = S.timeLogs.slice().sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')).slice(0, 5);
+  const firstEng = S.engineers.find(e => e.active);
+  const tv = { project_id: last.project_id, engineer_id: last.engineer_id || firstEng?.id, log_date: today(), days: 1, location: last.location || 'Site' };
+  tv.rate_per_day = E(tv.engineer_id)?.rate_per_day;
+  return pageHead('Quick entry', 'Log time and expenses on the go') +
+  `<div class="grid g2">
+    <div class="card"><div class="card-h"><h3>Log time</h3></div><form class="card-b" id="qeTime" novalidate>
+      ${S.engineers.length ? formFieldsHTML(QE.time, tv) + '<div style="margin-top:14px"><button class="btn primary" style="width:100%;justify-content:center">Save time</button></div>' : '<div class="empty">Add an engineer in <a href="#/masters">Masters</a> first.</div>'}
+    </form></div>
+    <div class="card"><div class="card-h"><h3>Add expense</h3></div><form class="card-b" id="qeExp" novalidate>
+      ${formFieldsHTML(QE.exp, { project_id: last.project_id, exp_date: today() })}
+      <div style="margin-top:14px"><button class="btn primary" style="width:100%;justify-content:center">Save expense</button></div>
+    </form></div>
+  </div>
+  <div class="card" style="margin-top:14px"><div class="card-h"><h3>Recent time entries</h3></div>
+    ${recent.length ? recent.map(t => `<div class="list-item"><div><b>${esc(E(t.engineer_id)?.name || '')}</b> · ${num(t.days)} d ${t.location === 'Site' ? badge('Site', 'b-orange') : ''}<div class="small muted">${esc(projLabel(P(t.project_id)))} — ${esc(t.description || '')}</div></div><span class="small muted">${fd(t.log_date)}</span></div>`).join('') : '<div class="empty">Nothing logged yet</div>'}</div>`;
+}
+function sessionStorageGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function sessionStorageSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function bindEntry() {
+  const tf = $('#qeTime'), ef = $('#qeExp');
+  const submitIn = async (form, fields, fn) => {
+    const btn = form.querySelector('button'); if (!btn || btn.disabled) return;
+    const { vals, errs } = collectForm(form, fields); if (errs.length) return toast(errs.join(' · '), true);
+    btn.disabled = true;
+    try { await fn(vals); render(); } catch (e) { toast(niceErr(e), true); btn.disabled = false; }
+  };
+  if (tf && tf.querySelector('button')) {
+    tf.addEventListener('input', e => { if (e.target.name === 'engineer_id') timeOnChange('engineer_id', collectForm(tf, QE.time).vals, (k, v) => setField(tf, k, v)); });
+    tf.onsubmit = e => { e.preventDefault(); submitIn(tf, QE.time, async v => { validateTime(v); await dbInsert('timeLogs', v);
+      sessionStorageSet('qe_last', JSON.stringify({ project_id: v.project_id, engineer_id: v.engineer_id, location: v.location })); toast(`Logged ${v.days} day(s) on ${P(v.project_id)?.project_no}`); }); };
+  }
+  ef.onsubmit = e => { e.preventDefault(); submitIn(ef, QE.exp, async v => { await dbInsert('expenses', v);
+    const l = JSON.parse(sessionStorageGet('qe_last') || '{}'); l.project_id = v.project_id; sessionStorageSet('qe_last', JSON.stringify(l)); toast(`Expense ${inr(v.amount)} saved`); }); };
+}
+
+/* ---------- Receivables ---------- */
+function pgReceivables() {
+  const t = today();
+  const rows = S.milestones.map(m => ({ m, c: msCalc(m), p: P(m.project_id) })).filter(x => x.p && x.c.outstanding > 0.5)
+    .map(x => ({ ...x, age: x.m.invoice_date ? daysBetween(x.m.invoice_date, t) : 0 })).sort((a, b) => b.age - a.age);
+  const bucket = a => a <= 30 ? 0 : a <= 60 ? 1 : a <= 90 ? 2 : 3;
+  const B = [0, 0, 0, 0]; rows.forEach(r => B[bucket(r.age)] += r.c.outstanding);
+  const planned = S.milestones.map(m => ({ m, c: msCalc(m), p: P(m.project_id) })).filter(x => x.p && !x.c.invoiced && x.p.status !== 'Cancelled')
+    .sort((a, b) => (a.m.due_date || '9999').localeCompare(b.m.due_date || '9999'));
+  return pageHead('Receivables', 'Invoiced amounts not yet received (incl. GST)') +
+  `<div class="kpis">${kpi('Total outstanding', inr(sum(rows, r => r.c.outstanding)), rows.length + ' invoice(s)', rows.length ? 'warn' : 'good')}
+    ${kpi('0–30 days', inr(B[0]))}${kpi('31–60 days', inr(B[1]))}${kpi('61–90 days', inr(B[2]), '', B[2] ? 'warn' : '')}${kpi('90+ days', inr(B[3]), '', B[3] ? 'warn' : '')}</div>
+  <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Outstanding invoices</h3></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Project</th><th>Client</th><th>Milestone</th><th>Invoice</th><th class="num">Age</th><th class="num">Invoice amt</th><th class="num">Received</th><th class="num">Balance</th><th></th></tr></thead><tbody>
+  ${rows.length ? rows.map(r => `<tr><td><a href="#/project/${r.p.id}/payments"><b>${esc(r.p.project_no)}</b></a><div class="small muted">${esc(r.p.name)}</div></td><td>${esc(clientName(r.p.client_id))}</td>
+    <td>${esc(r.m.label)}</td><td class="nowrap">${esc(r.m.invoice_no || '—')}<div class="small muted">${fd(r.m.invoice_date)}</div></td>
+    <td class="num">${badge(r.age + ' d', ['b-green', 'b-amber', 'b-orange', 'b-red'][bucket(r.age)])}</td><td class="num">${inr(r.c.gross)}</td><td class="num">${inr(r.c.received)}</td><td class="num"><b>${inr(r.c.outstanding)}</b></td>
+    <td><button class="btn sm" data-act="newReceipt" data-id="${r.m.id}">＋ Receipt</button></td></tr>`).join('') : emptyRow(9, 'No outstanding invoices 🎉')}
+  </tbody></table></div></div>
+  <div class="card"><div class="card-h"><h3>Upcoming billing (not yet invoiced)</h3></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Project</th><th>Milestone</th><th>Expected</th><th class="num">Amount (excl. GST)</th><th></th></tr></thead><tbody>
+  ${planned.length ? planned.map(r => `<tr><td><a href="#/project/${r.p.id}/payments"><b>${esc(r.p.project_no)}</b></a><div class="small muted">${esc(r.p.name)}</div></td><td>${esc(r.m.label)}</td>
+    <td class="nowrap">${r.m.due_date ? (r.m.due_date < t ? badge(fd(r.m.due_date), 'b-red') : fd(r.m.due_date)) : '—'}</td><td class="num">${inr(r.m.amount)}</td>
+    <td><button class="btn sm" data-act="editMilestone" data-id="${r.m.id}">Raise invoice</button></td></tr>`).join('') : emptyRow(5, 'Nothing pending')}
+  </tbody></table></div></div>`;
+}
+
+/* ---------- Masters ---------- */
+function pgMasters() {
+  const tab = UI.masterTab;
+  const used = id => S.projects.filter(p => p.client_id === id).length;
+  const usedE = id => S.timeLogs.filter(t => t.engineer_id === id);
+  return pageHead('Masters', 'Clients and engineers', tab === 'clients' ? '<button class="btn primary" data-act="newClient">＋ Client</button>' : '<button class="btn primary" data-act="newEngineer">＋ Engineer</button>') +
+  `<div class="tabs"><a href="#" data-act="masterTab" data-tab="clients" class="${tab === 'clients' ? 'active' : ''}">Clients (${S.clients.length})</a><a href="#" data-act="masterTab" data-tab="engineers" class="${tab === 'engineers' ? 'active' : ''}">Engineers (${S.engineers.length})</a></div>` +
+  (tab === 'clients'
+    ? `<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Client</th><th>Location</th><th>Contact</th><th>Phone</th><th>Email</th><th class="num">Projects</th><th></th></tr></thead><tbody>
+      ${S.clients.length ? S.clients.slice().sort((a, b) => a.name.localeCompare(b.name)).map(c => `<tr><td><b>${esc(c.name)}</b>${c.gstin ? `<div class="small muted">${esc(c.gstin)}</div>` : ''}</td><td>${esc(c.location || '')}</td><td>${esc(c.contact_person || '')}</td>
+        <td>${esc(c.phone || '')}</td><td>${esc(c.email || '')}</td><td class="num">${used(c.id)}</td><td><div class="row-actions"><button class="icon-btn" data-act="editClient" data-id="${c.id}">✎</button></div></td></tr>`).join('') : emptyRow(7, 'No clients yet')}
+      </tbody></table></div></div>`
+    : `<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Engineer</th><th class="num">Rate / day</th><th>Status</th><th class="num">Days logged</th><th class="num">Cost logged</th><th></th></tr></thead><tbody>
+      ${S.engineers.length ? S.engineers.slice().sort((a, b) => a.name.localeCompare(b.name)).map(e => { const u = usedE(e.id); return `<tr><td><b>${esc(e.name)}</b></td><td class="num">${inr(e.rate_per_day)}</td>
+        <td>${e.active ? badge('Active', 'b-green') : badge('Inactive')}</td><td class="num">${sum(u, 'days')}</td><td class="num">${inr(sum(u, 'cost'))}</td>
+        <td><div class="row-actions"><button class="icon-btn" data-act="editEngineer" data-id="${e.id}">✎</button></div></td></tr>`; }).join('') : emptyRow(6, 'No engineers yet — add yourself and your team with a cost rate per day')}
+      </tbody></table></div></div>`);
+}
+
+/* ---------- Backup ---------- */
+function pgBackup() {
+  return pageHead('Backup', 'Download a full copy of all data') +
+  `<div class="card"><div class="card-b">
+    <p>The backup is a single JSON file with every table. Keep a copy after major updates, and at least once a month.</p>
+    <div class="tbl-wrap" style="max-width:420px;margin-bottom:16px"><table class="tbl"><tbody>
+      ${Object.keys(TABLES).map(k => `<tr><td>${TABLES[k]}</td><td class="num">${S[k].length}</td></tr>`).join('')}
+    </tbody></table></div>
+    <button class="btn primary" data-act="backup">⬇ Download JSON backup</button>
+  </div></div>`;
+}
+async function doBackup(btn) {
+  await guarded(btn, async () => {
+    loading(true, 'Preparing backup…');
+    try {
+      const out = { app: 'averon-project-tracker', version: 1, exported_at: new Date().toISOString(), tables: {} };
+      for (const k of Object.keys(TABLES)) out.tables[TABLES[k]] = await fetchAll(TABLES[k]);
+      try { out.tables.audit_log = await fetchAll('audit_log'); } catch (e) { /* optional */ }
+      const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = `averon-projects-backup-${today()}.json`; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000); toast('Backup downloaded');
+    } finally { loading(false); }
+  });
+}
+
+/* =====================================================================
+   ACTIONS (event delegation)
+   ===================================================================== */
+async function autoPlan(pid, btn) {
+  const p = P(pid);
+  if (!p.start_date || !p.target_date) return toast('Set the project start and target dates first (Edit project)', true);
+  const total = daysBetween(p.start_date, p.target_date) + 1;
+  if (total < STAGES.length) return toast('Start → target is too short to spread 9 stages', true);
+  const st = S.stages.filter(s => s.project_id === pid).sort((a, b) => a.seq - b.seq);
+  if (st.some(s => s.planned_start || s.planned_end) && !await confirmBox('This will overwrite the existing planned dates for all stages.', 'Overwrite')) return;
+  const wsum = STAGE_WEIGHTS.reduce((a, b) => a + b, 0);
+  await guarded(btn, async () => {
+    let cum = 0;
+    for (let i = 0; i < st.length; i++) {
+      const s0 = Math.round(cum / wsum * total); cum += STAGE_WEIGHTS[i] || 1;
+      const e0 = Math.max(s0, Math.round(cum / wsum * total) - 1);
+      const { error } = await sb.from('project_stages').update({ planned_start: addDays(p.start_date, s0), planned_end: addDays(p.start_date, Math.min(e0, total - 1)) }).eq('id', st[i].id);
+      if (error) throw error;
+    }
+    await reload('stages'); render(); toast('Planned dates set — adjust any stage as needed');
+  });
+}
+const ACTIONS = {
+  openNav: () => $('#app').classList.add('nav-open'),
+  closeNav: () => $('#app').classList.remove('nav-open'),
+  logout: async () => { USER = null; await sb.auth.signOut(); showLogin(); },
+  go: d => { location.hash = d.href; },
+  newProject: () => openProjectForm(null),
+  editProject: d => openProjectForm(P(d.id)),
+  editStage: d => openStageForm(S.stages.find(s => s.id === d.id)),
+  stageStart: (d, el) => guarded(el, async () => { await dbUpdate('stages', d.id, { status: 'In Progress', actual_start: today() }); render(); toast('Stage started'); }),
+  stageDone: (d, el) => guarded(el, async () => { const s = S.stages.find(x => x.id === d.id);
+    await dbUpdate('stages', d.id, { status: 'Done', actual_start: s.actual_start || today(), actual_end: today() }); render();
+    const left = S.stages.filter(x => x.project_id === s.project_id && x.status !== 'Done' && x.status !== 'Skipped').length;
+    toast(left ? 'Stage completed' : 'All stages done — mark the project Completed from Edit'); }),
+  autoPlan: (d, el) => autoPlan(d.id, el),
+  newTask: d => openTaskForm(null, d.pid),
+  editTask: d => openTaskForm(S.tasks.find(t => t.id === d.id)),
+  toggleTask: (d, el) => guarded(el, async () => { const done = el.checked; await dbUpdate('tasks', d.id, { status: done ? 'Done' : 'Open', completed_at: done ? today() : null }); render(); }),
+  newTime: d => openTimeForm(null, d.pid),
+  editTime: d => openTimeForm(S.timeLogs.find(t => t.id === d.id)),
+  newExpense: d => openExpenseForm(null, d.pid),
+  editExpense: d => openExpenseForm(S.expenses.find(x => x.id === d.id)),
+  newMilestone: d => openMilestoneForm(null, d.pid),
+  editMilestone: d => { openMilestoneForm(S.milestones.find(m => m.id === d.id)); if (d.focus) $('#f_' + d.focus)?.focus(); },
+  newReceipt: d => openReceiptForm(null, d.id),
+  editReceipt: d => openReceiptForm(S.receipts.find(r => r.id === d.id)),
+  editBudget: d => openBudgetForm(P(d.id)),
+  newClient: () => openClientForm(null),
+  editClient: d => openClientForm(C(d.id)),
+  newEngineer: () => openEngineerForm(null),
+  editEngineer: d => openEngineerForm(E(d.id)),
+  masterTab: d => { UI.masterTab = d.tab; render(); },
+  backup: (d, el) => doBackup(el)
+};
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  if (el.tagName === 'A' || el.tagName === 'BUTTON') e.preventDefault();
+  if (el.tagName === 'TR' && e.target.closest('a,button,input')) return;
+  const fn = ACTIONS[el.dataset.act]; if (fn) fn(el.dataset, el);
+});
+
+/* =====================================================================
+   ROUTER
+   ===================================================================== */
+function render() {
+  if (!USER) return;
+  const parts = (location.hash.replace(/^#\/?/, '') || 'dashboard').split('/');
+  const page = parts[0];
+  const navKey = page === 'project' ? 'projects' : page;
+  $('#nav').innerHTML = NAV.map(([k, l]) => `<a href="#/${k}" class="${k === navKey ? 'active' : ''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[k]}</svg>${l}</a>`).join('');
+  const html = ({ dashboard: pgDashboard, projects: pgProjects, project: () => pgProject(parts[1], parts[2]), tasks: pgTasks, entry: pgEntry,
+    receivables: pgReceivables, masters: pgMasters, backup: pgBackup }[page] || pgDashboard)();
+  const ct = $('#content'), scroll = window.scrollY, same = render._last === location.hash;
+  ct.innerHTML = html; render._last = location.hash;
+  if (!same) window.scrollTo(0, 0); else window.scrollTo(0, scroll);
+  // page-specific bindings
+  if (page === 'projects') {
+    $('#projSearch').addEventListener('input', debounce(e => { UI.projSearch = e.target.value; $('#projBody').innerHTML = projectRows(); }, 250));
+    $('#projStatus').onchange = e => { UI.projStatus = e.target.value; $('#projBody').innerHTML = projectRows(); };
+  }
+  if (page === 'tasks') {
+    $('#taskProject').onchange = e => { UI.taskProject = e.target.value; render(); };
+    $('#taskStatus').onchange = e => { UI.taskStatus = e.target.value; render(); };
+  }
+  if (page === 'entry') bindEntry();
+}
+window.addEventListener('hashchange', () => { $('#app').classList.remove('nav-open'); closeModal(); render(); });
+
+/* =====================================================================
+   AUTH / BOOT
+   ===================================================================== */
+function showLogin(msg) {
+  USER = null; $('#app').classList.add('hidden'); $('#login').classList.remove('hidden');
+  const e = $('#loginErr'); if (msg) { e.textContent = msg; e.classList.remove('hidden'); } else e.classList.add('hidden');
+  $('#lgBtn').disabled = false; $('#lgBtn').textContent = 'Sign in';
+}
+async function boot(session) {
+  loading(true, 'Loading projects…');
+  try {
+    const { data: mem, error: me } = await sb.from('app_users').select('user_id').eq('user_id', session.user.id).maybeSingle();
+    if (me) throw me;
+    if (!mem) { await sb.auth.signOut(); loading(false); return showLogin('This account is not authorised for the Averon Project Tracker.'); }
+    USER = session.user;
+    await loadAll();
+    $('#whoami').textContent = USER.email;
+    $('#login').classList.add('hidden'); $('#app').classList.remove('hidden');
+    render();
+  } catch (e) {
+    showLogin('Could not load data: ' + niceErr(e));
+  } finally { loading(false); }
+}
+$('#loginForm').onsubmit = async e => {
+  e.preventDefault(); const btn = $('#lgBtn'); if (btn.disabled) return;
+  btn.disabled = true; btn.textContent = 'Signing in…'; $('#loginErr').classList.add('hidden');
+  const { data, error } = await sb.auth.signInWithPassword({ email: $('#lgEmail').value.trim(), password: $('#lgPass').value });
+  if (error) return showLogin(error.message === 'Invalid login credentials' ? 'Wrong email or password.' : error.message);
+  await boot(data.session);
+};
+// Keep the auth listener light (no awaits inside) to avoid the supabase-js deadlock
+sb.auth.onAuthStateChange((event) => { if (event === 'SIGNED_OUT' && USER) setTimeout(() => showLogin('You have been signed out.'), 0); });
+
+// Inline PWA manifest (single-file deploy)
+(() => {
+  const icon = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="96" fill="#1B2A41"/><text x="256" y="340" font-family="Arial" font-weight="700" font-size="300" text-anchor="middle" fill="#E8702A">A</text></svg>');
+  const m = { name:'Averon Project Tracker', short_name:'Averon Projects', start_url: location.href.split('#')[0], display:'standalone', background_color:'#1B2A41', theme_color:'#1B2A41',
+    icons:[{ src: icon, sizes:'512x512', type:'image/svg+xml', purpose:'any' }] };
+  const l = document.createElement('link'); l.rel = 'manifest'; l.href = URL.createObjectURL(new Blob([JSON.stringify(m)], { type:'application/manifest+json' })); document.head.appendChild(l);
+  const ai = document.createElement('link'); ai.rel = 'apple-touch-icon'; ai.href = icon; document.head.appendChild(ai);
+  const fi = document.createElement('link'); fi.rel = 'icon'; fi.href = icon; document.head.appendChild(fi);
+})();
+
+(async () => {
+  if (SUPABASE_URL.includes('YOUR-PROJECT')) { showLogin('Setup needed: paste your Supabase URL and anon key at the top of the script in index.html.'); return; }
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) boot(session); else showLogin();
+})();
+</script>
+</body>
+</html>
